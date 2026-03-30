@@ -50,7 +50,7 @@ const initialPushState: PushState = {
   permission: 'default',
 };
 
-export default function ConfigView() {
+export default function ConfigView({ onLogout }: { onLogout?: () => void | Promise<void> }) {
   const [email, setEmail] = useState('');
   const [saved, setSaved] = useState(false);
   const [testingEmail, setTestingEmail] = useState(false);
@@ -354,7 +354,15 @@ export default function ConfigView() {
 
   const handleLogout = async () => {
     if (!confirm('Cerrar sesion?')) return;
-    await supabase.auth.signOut();
+    try {
+      await supabase.auth.signOut();
+      await onLogout?.();
+    } catch (error) {
+      setPushFeedback({
+        tone: 'error',
+        text: error instanceof Error ? error.message : 'No se pudo cerrar la sesión.',
+      });
+    }
   };
 
   return (

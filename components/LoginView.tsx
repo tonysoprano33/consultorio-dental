@@ -6,7 +6,7 @@ import { createClient } from '../lib/supabase';
 
 const supabase = createClient();
 
-export default function LoginView() {
+export default function LoginView({ onLogin }: { onLogin?: () => void | Promise<void> }) {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
@@ -24,6 +24,12 @@ export default function LoginView() {
 
     if (error) {
       setError(error.message);
+    } else {
+      try {
+        await onLogin?.();
+      } catch (e) {
+        setError(e instanceof Error ? e.message : 'No se pudo continuar luego del login.');
+      }
     }
 
     setLoading(false);

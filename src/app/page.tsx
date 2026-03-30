@@ -1,7 +1,7 @@
 'use client';
 
 import dynamic from 'next/dynamic';
-import { startTransition, useEffect, useMemo, useState } from 'react';
+import { startTransition, useCallback, useEffect, useMemo, useState } from 'react';
 import { BellRing, CalendarDays, Clock3, Settings, Users } from 'lucide-react';
 import { getTodayDateString } from '../../lib/date-utils';
 import { showBrowserNotification } from '../../lib/browser-notifications';
@@ -52,6 +52,27 @@ export default function Dashboard() {
   const [activeTab, setActiveTab] = useState<(typeof tabs)[number]['id']>('hoy');
   const [session, setSession] = useState<any>(null);
   const [loading, setLoading] = useState(true);
+
+  const handleLogin = useCallback(async () => {
+    setLoading(true);
+    try {
+      const {
+        data: { session: nextSession },
+      } = await supabase.auth.getSession();
+      setSession(nextSession);
+    } catch (error) {
+      console.error('No se pudo verificar la sesion luego del login.', error);
+      setSession(null);
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  const handleLogout = useCallback(() => {
+    setSession(null);
+    setActiveTab('hoy');
+    setLoading(false);
+  }, []);
 
   useEffect(() => {
     let isMounted = true;
@@ -150,7 +171,7 @@ export default function Dashboard() {
   }
 
   if (!session) {
-    return <LoginView />;
+    return <LoginView onLogin={handleLogin} />;
   }
 
   const activeView = useMemo(() => {
@@ -158,8 +179,8 @@ export default function Dashboard() {
     if (activeTab === 'turnos') return <AllAppointments />;
     if (activeTab === 'pacientes') return <PatientsView />;
     if (activeTab === 'recordatorios') return <RemindersView />;
-    return <ConfigView />;
-  }, [activeTab]);
+    return <ConfigView onLogout={handleLogout} />;
+  }, [activeTab, handleLogout]);
 
   return (
     <div className={styles.page}>
