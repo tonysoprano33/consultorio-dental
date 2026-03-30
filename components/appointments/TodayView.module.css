@@ -1,0 +1,411 @@
+.container {
+  max-width: 760px;
+  margin: 0 auto;
+  padding: 2.25rem 1.5rem 4rem;
+  font-family: var(--font-dm-sans), sans-serif;
+}
+
+.header {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 1rem;
+  flex-wrap: wrap;
+  margin-bottom: 2rem;
+  padding-bottom: 1.5rem;
+  border-bottom: 1px solid var(--cfg-border);
+}
+
+.title {
+  font-family: var(--font-dm-serif), serif;
+  font-size: clamp(2rem, 6vw, 2.5rem);
+  color: var(--ink);
+  letter-spacing: -0.03em;
+  line-height: 0.95;
+}
+
+.title em {
+  font-style: italic;
+  color: var(--rose-deep);
+}
+
+.subtitle {
+  font-size: 0.82rem;
+  color: var(--muted);
+  margin-top: 0.4rem;
+  font-weight: 300;
+  text-transform: capitalize;
+}
+
+.newButton {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  background: var(--ink);
+  color: white;
+  border: none;
+  border-radius: 14px;
+  padding: 0.8rem 1.15rem;
+  font-size: 0.88rem;
+  cursor: pointer;
+  min-width: 172px;
+}
+
+.statsGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
+  gap: 0.75rem;
+  margin-bottom: 1.75rem;
+}
+
+.statCard {
+  display: flex;
+  align-items: center;
+  gap: 0.85rem;
+  padding: 1rem 1.1rem;
+  border-radius: 18px;
+  background: white;
+  border: 1px solid var(--cfg-border);
+  min-height: 88px;
+}
+
+.statIcon {
+  width: 40px;
+  height: 40px;
+  border-radius: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.statValue {
+  font-size: 1.35rem;
+  font-weight: 600;
+  color: var(--ink);
+  line-height: 1;
+}
+
+.statLabel {
+  font-size: 0.72rem;
+  color: var(--muted);
+  margin-top: 0.2rem;
+  font-weight: 400;
+}
+
+.sectionLabel {
+  font-size: 0.62rem;
+  font-weight: 600;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--muted);
+  margin-bottom: 1rem;
+}
+
+.list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.65rem;
+}
+
+.appointmentCard {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 1rem 1.1rem;
+  border-radius: 18px;
+  background: white;
+  border: 1px solid var(--cfg-border);
+  box-shadow: 0 8px 18px rgba(24, 34, 28, 0.04);
+}
+
+.appointmentCardArrived {
+  border-color: #a8c5b0;
+  background: #f5fbf7;
+}
+
+.patientRow {
+  display: flex;
+  align-items: center;
+  gap: 0.95rem;
+  flex: 1;
+  min-width: 0;
+}
+
+.timeCluster {
+  display: flex;
+  align-items: center;
+  gap: 0.85rem;
+  flex-shrink: 0;
+}
+
+.time {
+  min-width: 3.1rem;
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: var(--ink);
+  font-variant-numeric: tabular-nums;
+}
+
+.divider {
+  width: 1px;
+  height: 34px;
+  background: var(--cfg-border);
+}
+
+.avatar {
+  width: 2.5rem;
+  height: 2.5rem;
+  border-radius: 999px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--rose);
+  color: var(--rose-deep);
+  font-size: 0.78rem;
+  font-weight: 700;
+  flex-shrink: 0;
+}
+
+.avatarArrived {
+  background: var(--sage);
+  color: var(--sage-deep);
+}
+
+.copy {
+  min-width: 0;
+}
+
+.patientName {
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: var(--ink);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.metaRow {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  flex-wrap: wrap;
+  margin-top: 0.2rem;
+}
+
+.reason {
+  font-size: 0.78rem;
+  color: var(--muted);
+  font-weight: 400;
+}
+
+.insurance {
+  display: inline-flex;
+  align-items: center;
+  background: var(--rose);
+  color: var(--rose-deep);
+  font-size: 0.68rem;
+  font-weight: 600;
+  border-radius: 999px;
+  padding: 0.16rem 0.55rem;
+}
+
+.controls {
+  display: flex;
+  align-items: center;
+  gap: 0.7rem;
+  flex-shrink: 0;
+}
+
+.arrivedButton {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.35rem;
+  border: 1.5px solid var(--sage-mid);
+  background: var(--sage);
+  color: var(--sage-deep);
+  border-radius: 12px;
+  padding: 0.62rem 0.9rem;
+  font-size: 0.8rem;
+  font-weight: 600;
+  white-space: nowrap;
+  cursor: pointer;
+  min-width: 112px;
+}
+
+.arrivedButtonDone {
+  background: var(--sage-dark);
+  border-color: var(--sage-dark);
+  color: white;
+}
+
+.iconActions {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+
+.iconButton {
+  width: 2.15rem;
+  height: 2.15rem;
+  border-radius: 11px;
+  border: 1.5px solid var(--cfg-border);
+  background: white;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+}
+
+.iconButtonDanger {
+  border-color: var(--danger-border);
+  background: var(--danger-bg);
+}
+
+.emptyCard {
+  text-align: center;
+  padding: 2.8rem 1.5rem;
+  background: white;
+  border: 1px solid var(--cfg-border);
+  border-radius: 20px;
+}
+
+.emptyIcon {
+  width: 3.3rem;
+  height: 3.3rem;
+  margin: 0 auto 0.95rem;
+  border-radius: 16px;
+  background: var(--sage);
+  color: var(--sage-deep);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.6rem;
+  font-weight: 500;
+}
+
+.emptyTitle {
+  font-size: 0.98rem;
+  font-weight: 600;
+  color: var(--ink);
+}
+
+.emptyMuted {
+  font-size: 0.82rem;
+  color: var(--muted);
+  margin-top: 0.35rem;
+  font-weight: 300;
+}
+
+.footer {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+  margin-top: 2rem;
+  padding-top: 1.35rem;
+  border-top: 1px solid var(--cfg-border);
+}
+
+.footerDot {
+  width: 0.35rem;
+  height: 0.35rem;
+  border-radius: 999px;
+  background: var(--rose-mid);
+}
+
+.footerText {
+  font-size: 0.72rem;
+  color: var(--faint);
+  text-align: center;
+}
+
+.footerText strong {
+  color: var(--muted);
+  font-weight: 500;
+}
+
+@media (max-width: 720px) {
+  .container {
+    padding: 1.4rem 1rem 3rem;
+  }
+
+  .newButton {
+    width: 100%;
+  }
+
+  .appointmentCard {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 0.95rem;
+  }
+
+  .patientRow {
+    align-items: flex-start;
+  }
+
+  .timeCluster {
+    width: 100%;
+    justify-content: flex-start;
+  }
+
+  .controls {
+    width: 100%;
+    justify-content: space-between;
+    align-items: stretch;
+    flex-wrap: wrap;
+  }
+
+  .arrivedButton {
+    flex: 1 1 210px;
+  }
+
+  .iconActions {
+    flex: 0 0 auto;
+  }
+
+  .footerDot {
+    display: none;
+  }
+}
+
+@media (max-width: 520px) {
+  .patientRow {
+    flex-direction: column;
+    gap: 0.8rem;
+  }
+
+  .timeCluster {
+    gap: 0.7rem;
+  }
+
+  .time {
+    min-width: 0;
+  }
+
+  .divider {
+    display: none;
+  }
+
+  .controls {
+    flex-direction: column;
+  }
+
+  .arrivedButton,
+  .iconActions {
+    width: 100%;
+  }
+
+  .iconActions {
+    justify-content: flex-end;
+  }
+
+  .iconButton {
+    width: 2.5rem;
+    height: 2.5rem;
+  }
+}
