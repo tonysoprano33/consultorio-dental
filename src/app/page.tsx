@@ -1,8 +1,8 @@
 'use client';
 
 import dynamic from 'next/dynamic';
-import { startTransition, useCallback, useEffect, useMemo, useState } from 'react';
-import { BellRing, CalendarDays, Clock3, Settings, Users } from 'lucide-react';
+import { startTransition, useCallback, useEffect, useState } from 'react';
+import { BarChart3, BellRing, Box, CalendarDays, Clock3, Settings, Users } from 'lucide-react';
 import { getTodayDateString } from '../../lib/date-utils';
 import { showBrowserNotification } from '../../lib/browser-notifications';
 import { createClient } from '../../lib/supabase';
@@ -25,6 +25,16 @@ const PatientsView = dynamic(() => import('../../components/patients/PatientsVie
   loading: () => <SectionLoading title="Cargando pacientes" description="Preparando la ficha del consultorio." />,
 });
 
+const StatsView = dynamic(() => import('../../components/dashboard/StatsView'), {
+  ssr: false,
+  loading: () => <SectionLoading title="Cargando panel" description="Analizando estadisticas del mes." />,
+});
+
+const InventoryView = dynamic(() => import('../../components/inventory/InventoryView'), {
+  ssr: false,
+  loading: () => <SectionLoading title="Cargando inventario" description="Buscando materiales e insumos." />,
+});
+
 const RemindersView = dynamic(() => import('../../components/reminders/RemindersView'), {
   ssr: false,
   loading: () => <SectionLoading title="Cargando recordatorios" description="Armando los avisos del dia." />,
@@ -42,10 +52,12 @@ const LoginView = dynamic(() => import('../../components/LoginView'), {
 
 const tabs = [
   { id: 'hoy', label: 'Hoy', icon: Clock3 },
+  { id: 'panel', label: 'Panel', icon: BarChart3 },
   { id: 'turnos', label: 'Turnos', icon: CalendarDays },
   { id: 'pacientes', label: 'Pacientes', icon: Users },
-  { id: 'recordatorios', label: 'Recordatorios', icon: BellRing },
-  { id: 'config', label: 'Configuracion', icon: Settings },
+  { id: 'inventario', label: 'Insumos', icon: Box },
+  { id: 'recordatorios', label: 'Alertas', icon: BellRing },
+  { id: 'config', label: 'Config', icon: Settings },
 ] as const;
 
 export default function Dashboard() {
@@ -119,7 +131,9 @@ export default function Dashboard() {
     if (!session) return;
 
     const today = getTodayDateString();
-    const channel = supabase
+    
+    // 1) Postgres changes fallback (if enabled)
+    const dbChannel = supabase
       .channel(`appointments-notify-${today}`)
       .on(
         'postgres_changes',
@@ -132,18 +146,13 @@ export default function Dashboard() {
             return;
           }
 
-          if (typeof document !== 'undefined' && document.visibilityState === 'visible') {
-            return;
-          }
-
           let patientName = 'Un paciente';
-
           if (current.patient_id) {
             const { data } = await supabase.from('patients').select('name').eq('id', current.patient_id).maybeSingle();
             patientName = data?.name || patientName;
           }
 
-          showBrowserNotification('Paciente en sala', {
+          void showBrowserNotification('Paciente en sala', {
             body: `${patientName} llego y esta en la sala de espera${current.time ? ` - ${current.time}` : ''}.`,
             tag: `appointment-arrived-${current.id}`,
           });
@@ -151,8 +160,24 @@ export default function Dashboard() {
       )
       .subscribe();
 
+    // 2) Reliable Broadcast Channel (ignores postgres triggers, instant delivery)
+    const broadcastChannel = supabase
+      .channel('consultorio-global')
+      .on(
+        'broadcast',
+        { event: 'patient-arrived' },
+        (payload) => {
+          void showBrowserNotification('Paciente en sala', {
+            body: `${payload.payload.patientName} llego y esta en la sala de espera${payload.payload.time ? ` - ${payload.payload.time}` : ''}.`,
+            tag: `appointment-arrived-broadcast-${payload.payload.id}`,
+          });
+        }
+      )
+      .subscribe();
+
     return () => {
-      void supabase.removeChannel(channel);
+      void supabase.removeChannel(dbChannel);
+      void supabase.removeChannel(broadcastChannel);
     };
   }, [session]);
 
@@ -174,22 +199,38 @@ export default function Dashboard() {
     return <LoginView onLogin={handleLogin} />;
   }
 
-  const activeView = useMemo(() => {
-    if (activeTab === 'hoy') return <TodayView />;
-    if (activeTab === 'turnos') return <AllAppointments />;
-    if (activeTab === 'pacientes') return <PatientsView />;
-    if (activeTab === 'recordatorios') return <RemindersView />;
-    return <ConfigView onLogout={handleLogout} />;
-  }, [activeTab, handleLogout]);
+  let activeView;
+  if (activeTab === 'hoy') activeView = <TodayView />;
+  else if (activeTab === 'panel') activeView = <StatsView />;
+  else if (activeTab === 'turnos') activeView = <AllAppointments />;
+  else if (activeTab === 'pacientes') activeView = <PatientsView />;
+  else if (activeTab === 'inventario') activeView = <InventoryView />;
+  else if (activeTab === 'recordatorios') activeView = <RemindersView />;
+  else activeView = <ConfigView onLogout={handleLogout} />;
 
   return (
     <div className={styles.page}>
       <div className={styles.hero}>
-        <div>
-          <div className={styles.heroBrand}>
-            Consultorio <em>Dental</em>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
+          <div style={{ 
+            background: 'white', 
+            width: 44, 
+            height: 44, 
+            borderRadius: 14, 
+            display: 'flex', 
+            alignItems: 'center', 
+            justifyContent: 'center',
+            boxShadow: '0 4px 12px rgba(0,0,0,0.05)',
+            fontSize: '1.5rem'
+          }}>
+            🦷
           </div>
-          <p className={styles.heroTagline}>Agenda compartida para secretarias y doctora, optimizada para celular.</p>
+          <div>
+            <div className={styles.heroBrand}>
+              Consultorio <em>Dental</em>
+            </div>
+            <p className={styles.heroTagline}>Agenda compartida para secretarias y doctora.</p>
+          </div>
         </div>
         <div className={styles.heroMeta}>Dra. Nazarena</div>
       </div>

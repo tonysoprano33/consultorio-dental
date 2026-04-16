@@ -1,7 +1,8 @@
 'use client';
 
 import { useCallback, useEffect, useMemo, useState, type ReactNode } from 'react';
-import { Calendar, Check, CheckCircle, Clock, Pencil, Plus, Trash2 } from 'lucide-react';
+import { Calendar, Check, CheckCircle, Clock, Pencil, Plus, Share2, Trash2 } from 'lucide-react';
+import Tooltip from '../Tooltip';
 import { formatLongDate, getTodayDateString } from '../../lib/date-utils';
 import { buildMailtoUrl, getArrivalEmailDraft } from '../../lib/mail-drafts';
 import { getStoredNotificationEmail } from '../../lib/notification-settings';
@@ -33,6 +34,8 @@ export default function TodayView() {
   const [modalOpen, setModalOpen] = useState(false);
   const [editingAppt, setEditingAppt] = useState<Appointment | null>(null);
   const [savingArrivalId, setSavingArrivalId] = useState<string | null>(null);
+  const [currentPage, setCurrentPage] = useState(1);
+  const itemsPerPage = 20;
 
   const today = useMemo(() => getTodayDateString(), []);
   const todayLabel = useMemo(() => formatLongDate(today), [today]);
@@ -54,10 +57,17 @@ export default function TodayView() {
     void loadTodayAppointments();
 
     const channel = supabase
-      .channel('appointments-today')
+      .channel('consultorio-global')
       .on(
         'postgres_changes',
         { event: '*', schema: 'public', table: 'appointments', filter: `date=eq.${today}` },
+        () => {
+          void loadTodayAppointments();
+        }
+      )
+      .on(
+        'broadcast',
+        { event: 'patient-arrived' },
         () => {
           void loadTodayAppointments();
         }
@@ -107,25 +117,36 @@ export default function TodayView() {
       const pushDelivered = typeof payload.push?.sentCount === 'number' && payload.push.sentCount > 0;
       const emailDelivered = Boolean(payload.email?.sent);
 
-      if (
-        payload.appointment?.status === 'arrived' &&
-        !emailDelivered &&
-        !pushDelivered &&
-        notifyToEmail &&
-        typeof payload.email?.reason === 'string' &&
-        payload.email.reason.includes('SMTP')
-      ) {
+      if (payload.appointment?.status === 'arrived') {
         const patient = appointment.patient as PatientPreview | undefined;
-        const draft = getArrivalEmailDraft({
-          date: appointment.date,
-          time: appointment.time,
-          reason: appointment.reason,
-          patientName: patient?.name?.trim() || 'Paciente sin nombre',
-          patientPhone: patient?.phone,
-          patientInsurance: patient?.os,
+        await supabase.channel('consultorio-global').send({
+          type: 'broadcast',
+          event: 'patient-arrived',
+          payload: {
+            id: appointment.id,
+            patientName: patient?.name || 'Un paciente',
+            time: appointment.time,
+          },
         });
 
-        window.location.href = buildMailtoUrl(notifyToEmail, draft.subject, draft.text);
+        if (
+          !emailDelivered &&
+          !pushDelivered &&
+          notifyToEmail &&
+          typeof payload.email?.reason === 'string' &&
+          payload.email.reason.includes('SMTP')
+        ) {
+          const draft = getArrivalEmailDraft({
+            date: appointment.date,
+            time: appointment.time,
+            reason: appointment.reason,
+            patientName: patient?.name?.trim() || 'Paciente sin nombre',
+            patientPhone: patient?.phone,
+            patientInsurance: patient?.os,
+          });
+
+          window.location.href = buildMailtoUrl(notifyToEmail, draft.subject, draft.text);
+        }
       }
 
       await loadTodayAppointments();
@@ -143,7 +164,19 @@ export default function TodayView() {
     await loadTodayAppointments();
   };
 
+  const shareAppointment = (id: string) => {
+    const url = `${window.location.origin}/turno/${id}`;
+    void navigator.clipboard.writeText(url);
+    alert('Link del turno copiado. Podes pegarlo en WhatsApp.');
+  };
+
   const total = appointments.length;
+  const totalPages = Math.ceil(total / itemsPerPage);
+  const paginatedAppointments = useMemo(() => {
+    const start = (currentPage - 1) * itemsPerPage;
+    return appointments.slice(start, start + itemsPerPage);
+  }, [appointments, currentPage]);
+
   const arrivedCount = appointments.filter((appointment) => appointment.status === 'arrived').length;
   const pendingCount = total - arrivedCount;
 
@@ -203,69 +236,111 @@ export default function TodayView() {
           <p className={styles.emptyMuted}>Tocá Nuevo turno para agregar uno nuevo.</p>
         </div>
       ) : (
-        <div className={styles.list}>
-          {appointments.map((appointment) => {
-            const patient = appointment.patient as PatientPreview | undefined;
-            const isArrived = appointment.status === 'arrived';
-            const isSaving = savingArrivalId === appointment.id;
+        <>
+          <div className={styles.list}>
+            {paginatedAppointments.map((appointment) => {
+              const patient = appointment.patient as PatientPreview | undefined;
+              const isArrived = appointment.status === 'arrived';
+              const isSaving = savingArrivalId === appointment.id;
 
-            return (
-              <div
-                key={appointment.id}
-                className={`${styles.appointmentCard} ${isArrived ? styles.appointmentCardArrived : ''}`}
+              return (
+                <div
+                  key={appointment.id}
+                  className={`${styles.appointmentCard} ${isArrived ? styles.appointmentCardArrived : ''}`}
+                >
+                  <div className={styles.patientRow}>
+                    <div className={styles.timeCluster}>
+                      <span className={styles.time}>{appointment.time}</span>
+                      <span className={styles.divider} />
+                      <div className={`${styles.avatar} ${isArrived ? styles.avatarArrived : ''}`}>
+                        {getInitials(patient?.name || '?')}
+                      </div>
+                    </div>
+
+                    <div className={styles.copy}>
+                      <p className={styles.patientName}>{patient?.name || 'Paciente sin nombre'}</p>
+                      <div className={styles.metaRow}>
+                        <span className={styles.reason}>{appointment.reason || 'Consulta'}</span>
+                        {patient?.os && <span className={styles.insurance}>{patient.os}</span>}
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className={styles.controls}>
+                    <Tooltip text={isArrived ? 'Quitar llegada ↩️' : 'Marcar llegada ✅'}>
+                      <button
+                        onClick={() => toggleArrived(appointment.id)}
+                        disabled={isSaving}
+                        className={`${styles.arrivedButton} ${isArrived ? styles.arrivedButtonDone : ''}`}
+                      >
+                        {isArrived && <Check size={13} />}
+                        {isSaving ? 'Guardando...' : 'Llegó'}
+                      </button>
+                    </Tooltip>
+
+                    <div className={styles.iconActions}>
+                      <Tooltip text="Compartir link 🔗">
+                        <button
+                          onClick={() => shareAppointment(appointment.id)}
+                          className={styles.iconButton}
+                        >
+                          <Share2 size={14} color="var(--sage-deep)" />
+                        </button>
+                      </Tooltip>
+
+                      <Tooltip text="Editar turno ✨">
+                        <button
+                          onClick={() => {
+                            setEditingAppt(appointment);
+                            setModalOpen(true);
+                          }}
+                          className={styles.iconButton}
+                          aria-label="Editar turno"
+                        >
+                          <Pencil size={14} color="var(--muted)" />
+                        </button>
+                      </Tooltip>
+
+                      <Tooltip text="Eliminar turno 🗑️">
+                        <button
+                          onClick={() => deleteAppointment(appointment.id)}
+                          className={`${styles.iconButton} ${styles.iconButtonDanger}`}
+                          aria-label="Eliminar turno"
+                        >
+                          <Trash2 size={14} color="var(--danger-text)" />
+                        </button>
+                      </Tooltip>
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+
+          {totalPages > 1 && (
+            <div className={styles.paginationContainer}>
+              <button
+                disabled={currentPage === 1}
+                onClick={() => setCurrentPage((p) => p - 1)}
+                className={styles.btnPagination}
+                style={{ opacity: currentPage === 1 ? 0.4 : 1 }}
               >
-                <div className={styles.patientRow}>
-                  <div className={styles.timeCluster}>
-                    <span className={styles.time}>{appointment.time}</span>
-                    <span className={styles.divider} />
-                    <div className={`${styles.avatar} ${isArrived ? styles.avatarArrived : ''}`}>
-                      {getInitials(patient?.name || '?')}
-                    </div>
-                  </div>
-
-                  <div className={styles.copy}>
-                    <p className={styles.patientName}>{patient?.name || 'Paciente sin nombre'}</p>
-                    <div className={styles.metaRow}>
-                      <span className={styles.reason}>{appointment.reason || 'Consulta'}</span>
-                      {patient?.os && <span className={styles.insurance}>{patient.os}</span>}
-                    </div>
-                  </div>
-                </div>
-
-                <div className={styles.controls}>
-                  <button
-                    onClick={() => toggleArrived(appointment.id)}
-                    disabled={isSaving}
-                    className={`${styles.arrivedButton} ${isArrived ? styles.arrivedButtonDone : ''}`}
-                  >
-                    {isArrived && <Check size={13} />}
-                    {isSaving ? 'Guardando...' : 'Llegó'}
-                  </button>
-
-                  <div className={styles.iconActions}>
-                    <button
-                      onClick={() => {
-                        setEditingAppt(appointment);
-                        setModalOpen(true);
-                      }}
-                      className={styles.iconButton}
-                      aria-label="Editar turno"
-                    >
-                      <Pencil size={14} color="var(--muted)" />
-                    </button>
-                    <button
-                      onClick={() => deleteAppointment(appointment.id)}
-                      className={`${styles.iconButton} ${styles.iconButtonDanger}`}
-                      aria-label="Eliminar turno"
-                    >
-                      <Trash2 size={14} color="var(--danger-text)" />
-                    </button>
-                  </div>
-                </div>
+                Anterior
+              </button>
+              <div className={styles.paginationInfo}>
+                Página <strong>{currentPage}</strong> de {totalPages}
               </div>
-            );
-          })}
-        </div>
+              <button
+                disabled={currentPage === totalPages}
+                onClick={() => setCurrentPage((p) => p + 1)}
+                className={styles.btnPagination}
+                style={{ opacity: currentPage === totalPages ? 0.4 : 1 }}
+              >
+                Siguiente
+              </button>
+            </div>
+          )}
+        </>
       )}
 
       <div className={styles.footer}>

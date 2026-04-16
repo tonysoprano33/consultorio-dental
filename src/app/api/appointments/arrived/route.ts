@@ -19,6 +19,7 @@ type AppointmentRow = {
   date: string;
   time: string;
   reason?: string | null;
+  notes?: string | null;
   status: 'pending' | 'arrived' | 'completed' | 'cancelled';
   patient?: {
     name?: string | null;
@@ -46,7 +47,7 @@ export async function POST(request: NextRequest) {
 
     const { data: appointment, error: appointmentError } = await supabase
       .from('appointments')
-      .select('id, date, time, reason, status, patient:patients(name, phone, os)')
+      .select('id, date, time, reason, notes, status, patient:patients(name, phone, os)')
       .eq('id', appointmentId)
       .single<AppointmentRow>();
 
@@ -136,12 +137,39 @@ export async function POST(request: NextRequest) {
           pushSubscriptions: cleanedSubscriptions,
         });
       }
+
+      console.log('[PUSH DEBUG] currentSubscriptions length:', currentSubscriptions.length);
+      console.log('[PUSH DEBUG] currentSubscriptions:', JSON.stringify(currentSubscriptions, null, 2));
+      console.log('[PUSH DEBUG] push API result:', push);
+    }
+
+    // TELEGRAM INTEGRATION
+    let telegramSent = false;
+    if (newStatus === 'arrived') {
+      try {
+        const { sendTelegramMessage } = await import('../../../../lib/telegram');
+        const patientData = appointment.patient as { name?: string; phone?: string; os?: string } | null;
+        const patientName = (patientData?.name || 'Un paciente').trim();
+        const timeInfo = appointment.time ? ` a las <b>${appointment.time}</b>` : '';
+        const reasonInfo = appointment.reason ? `\n\n<b>Motivo:</b> ${appointment.reason}` : '';
+        const notesInfo = appointment.notes ? `\n<b>Notas:</b> ${appointment.notes}` : '';
+        const text = `🔔 <b>¡Paciente en sala!</b>\n\n${patientName} llegó${timeInfo} y te está esperando.${reasonInfo}${notesInfo}`;
+
+        telegramSent = await sendTelegramMessage({
+          chatId: '8303057631',
+          text,
+        });
+        console.log('[TELEGRAM DEBUG] Envío exitoso:', telegramSent);
+      } catch (err) {
+        console.error('[TELEGRAM DEBUG] Error en integración:', err);
+      }
     }
 
     return NextResponse.json({
       appointment: updatedAppointment,
       email,
       push,
+      telegramSent,
     });
   } catch (error) {
     const message = error instanceof Error ? error.message : 'Error inesperado.';

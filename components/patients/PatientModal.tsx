@@ -128,6 +128,8 @@ export default function PatientModal({ isOpen, onClose, editPatient, onSaved }: 
               <option value="">Seleccionar</option>
               <option value="OSDE">OSDE</option>
               <option value="IOMA">IOMA</option>
+              <option value="GRASSI">GRASSI</option>
+              <option value="DOSEP">DOSEP</option>
               <option value="Swiss Medical">Swiss Medical</option>
               <option value="Galeno">Galeno</option>
               <option value="Medife">Medife</option>

@@ -17,6 +17,17 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Sesion invalida o expirada.' }, { status: 401 });
     }
 
+    const body = await request.json().catch(() => ({}));
+    const isTelegramTest = body.type === 'telegram';
+
+    if (isTelegramTest) {
+      const { sendTelegramMessage } = await import('../../../../../lib/telegram');
+      const ok = await sendTelegramMessage({
+        text: '✅ <b>¡Conexión Exitosa!</b>\n\nEste es un mensaje de prueba desde la configuración del consultorio. Ya estás listo para recibir los avisos.',
+      });
+      return NextResponse.json({ ok, telegram: true });
+    }
+
     const currentMetadata = authContext.user.user_metadata || {};
     const currentSubscriptions = sanitizeStoredPushSubscriptions(currentMetadata.pushSubscriptions);
     const push = await sendPushNotifications(currentSubscriptions, {

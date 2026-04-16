@@ -1,0 +1,97 @@
+﻿
+C:\Users\Tony\consultorio-dental\components\ConfigView.tsx
+  99:6  warning  React Hook useEffect has a missing dependency: 'refreshPushState'. Either include it or remove the dependency array  react-hooks/exhaustive-deps
+
+C:\Users\Tony\consultorio-dental\components\appointments\AllAppointments.tsx
+   36:10  error  Error: Calling setState synchronously within an effect can trigger cascading renders
+
+Effects are intended to synchronize state between React and external systems such as manually updating the DOM, state management libraries, or other platform APIs. In general, the body of an effect should do one or both of the following:
+* Update external systems with the latest state from React.
+* Subscribe for updates from some external system, calling setState in a callback function when external state changes.
+
+Calling setState synchronously within an effect body causes cascading renders that can hurt performance, and is not recommended. (https://react.dev/learn/you-might-not-need-an-effect).
+
+C:\Users\Tony\consultorio-dental\components\appointments\AllAppointments.tsx:36:10
+  34 |
+  35 |   useEffect(() => {
+> 36 |     void loadAppointments();
+     |          ^^^^^^^^^^^^^^^^ Avoid calling setState() directly within an effect
+  37 |   }, []);
+  38 |
+  39 |   const availableYears = useMemo(  react-hooks/set-state-in-effect
+   51:51  error  Unexpected any. Specify a different type                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                          @typescript-eslint/no-explicit-any
+  163:58  error  Unexpected any. Specify a different type                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                          @typescript-eslint/no-explicit-any
+
+C:\Users\Tony\consultorio-dental\components\appointments\AppointmentModal.tsx
+  19:44  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  44:17  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+C:\Users\Tony\consultorio-dental\components\patients\ClinicalHistoryModal.tsx
+  50:35  error  Error: Calling setState synchronously within an effect can trigger cascading renders
+
+Effects are intended to synchronize state between React and external systems such as manually updating the DOM, state management libraries, or other platform APIs. In general, the body of an effect should do one or both of the following:
+* Update external systems with the latest state from React.
+* Subscribe for updates from some external system, calling setState in a callback function when external state changes.
+
+Calling setState synchronously within an effect body causes cascading renders that can hurt performance, and is not recommended. (https://react.dev/learn/you-might-not-need-an-effect).
+
+C:\Users\Tony\consultorio-dental\components\patients\ClinicalHistoryModal.tsx:50:35
+  48 |
+  49 |   useEffect(() => {
+> 50 |     if (patient.clinical_history) setForm(prev => ({ ...prev, ...patient.clinical_history }));
+     |                                   ^^^^^^^ Avoid calling setState() directly within an effect
+  51 |   }, [patient]);
+  52 |
+  53 |   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {  react-hooks/set-state-in-effect
+
+C:\Users\Tony\consultorio-dental\components\patients\PatientModal.tsx
+  71:21  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+C:\Users\Tony\consultorio-dental\components\patients\PatientsView.tsx
+  40:10  error  Error: Calling setState synchronously within an effect can trigger cascading renders
+
+Effects are intended to synchronize state between React and external systems such as manually updating the DOM, state management libraries, or other platform APIs. In general, the body of an effect should do one or both of the following:
+* Update external systems with the latest state from React.
+* Subscribe for updates from some external system, calling setState in a callback function when external state changes.
+
+Calling setState synchronously within an effect body causes cascading renders that can hurt performance, and is not recommended. (https://react.dev/learn/you-might-not-need-an-effect).
+
+C:\Users\Tony\consultorio-dental\components\patients\PatientsView.tsx:40:10
+  38 |
+  39 |   useEffect(() => {
+> 40 |     void loadPatients();
+     |          ^^^^^^^^^^^^ Avoid calling setState() directly within an effect
+  41 |   }, []);
+  42 |
+  43 |   const filtered = useMemo(() => {  react-hooks/set-state-in-effect
+
+C:\Users\Tony\consultorio-dental\components\reminders\RemindersView.tsx
+  36:5  error    Error: Calling setState synchronously within an effect can trigger cascading renders
+
+Effects are intended to synchronize state between React and external systems such as manually updating the DOM, state management libraries, or other platform APIs. In general, the body of an effect should do one or both of the following:
+* Update external systems with the latest state from React.
+* Subscribe for updates from some external system, calling setState in a callback function when external state changes.
+
+Calling setState synchronously within an effect body causes cascading renders that can hurt performance, and is not recommended. (https://react.dev/learn/you-might-not-need-an-effect).
+
+C:\Users\Tony\consultorio-dental\components\reminders\RemindersView.tsx:36:5
+  34 |
+  35 |   useEffect(() => {
+> 36 |     loadAppointments();
+     |     ^^^^^^^^^^^^^^^^ Avoid calling setState() directly within an effect
+  37 |   }, [today, tomorrow]);
+  38 |
+  39 |   const todayAppointments = appointments.filter((appointment) => appointment.date === today);  react-hooks/set-state-in-effect
+  37:6  warning  React Hook useEffect has a missing dependency: 'loadAppointments'. Either include it or remove the dependency array                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                          react-hooks/exhaustive-deps
+
+C:\Users\Tony\consultorio-dental\public\sw.js
+  14:12  warning  'error' is defined but never used  @typescript-eslint/no-unused-vars
+
+C:\Users\Tony\consultorio-dental\src\app\page.tsx
+  53:42  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+C:\Users\Tony\consultorio-dental\types\index.ts
+  10:22  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+Ô£û 14 problems (11 errors, 3 warnings)
+

@@ -13,9 +13,21 @@ export default function RemindersView() {
   const [appointments, setAppointments] = useState<Appointment[]>([]);
   const [loading, setLoading] = useState(true);
   const [copiedId, setCopiedId] = useState<string | null>(null);
+  const [sentIds, setSentIds] = useState<string[]>([]);
 
   const today = useMemo(() => getTodayDateString(), []);
   const tomorrow = useMemo(() => addDaysToDateString(today, 1), [today]);
+
+  // Cargar IDs enviados desde localStorage al iniciar
+  useEffect(() => {
+    const saved = localStorage.getItem(`sent_reminders_${today}`);
+    if (saved) setSentIds(JSON.parse(saved));
+  }, [today]);
+
+  // Guardar IDs enviados cuando cambien
+  useEffect(() => {
+    localStorage.setItem(`sent_reminders_${today}`, JSON.stringify(sentIds));
+  }, [sentIds, today]);
 
   const loadAppointments = async () => {
     setLoading(true);
@@ -36,8 +48,16 @@ export default function RemindersView() {
     loadAppointments();
   }, [today, tomorrow]);
 
+  const toggleSent = (id: string) => {
+    setSentIds((prev) => 
+      prev.includes(id) ? prev.filter(i => i !== id) : [...prev, id]
+    );
+  };
+
   const todayAppointments = appointments.filter((appointment) => appointment.date === today);
   const tomorrowAppointments = appointments.filter((appointment) => appointment.date === tomorrow);
+  
+  const pendingCount = appointments.filter(a => !sentIds.includes(a.id)).length;
   const readyContacts = appointments.filter((appointment) =>
     Boolean(normalizeWhatsappPhone((appointment.patient as { phone?: string | null } | undefined)?.phone))
   ).length;
@@ -46,6 +66,7 @@ export default function RemindersView() {
     try {
       await navigator.clipboard.writeText(buildReminderMessage(appointment));
       setCopiedId(appointment.id);
+      toggleSent(appointment.id);
       window.setTimeout(() => setCopiedId((current) => (current === appointment.id ? null : current)), 1800);
     } catch {
       alert('No se pudo copiar el mensaje.');
@@ -61,18 +82,19 @@ export default function RemindersView() {
       return;
     }
 
+    toggleSent(appointment.id);
     window.open(url, '_blank', 'noopener,noreferrer');
   };
 
   return (
-    <div style={{ maxWidth: 860, margin: '0 auto', padding: '2.5rem 1.5rem 4rem', fontFamily: 'var(--font-dm-sans), sans-serif' }}>
+    <div style={{ maxWidth: 1200, margin: '0 auto', padding: '2.5rem 1.5rem 4rem', fontFamily: 'var(--font-dm-sans), sans-serif' }}>
       <div style={{ display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between', gap: 16, flexWrap: 'wrap', marginBottom: '2rem', paddingBottom: '1.5rem', borderBottom: '1px solid var(--cfg-border)' }}>
         <div>
           <h1 style={{ fontFamily: 'var(--font-dm-serif), serif', fontSize: 30, color: 'var(--ink)', letterSpacing: '-0.5px', lineHeight: 1 }}>
             Recordatorios <em style={{ fontStyle: 'italic', color: 'var(--rose-deep)' }}>gratis</em>
           </h1>
           <p style={{ fontSize: 13, color: 'var(--muted)', marginTop: 6, fontWeight: 300 }}>
-            WhatsApp Web con mensaje listo, sin APIs pagas.
+            Faltan <strong>{pendingCount}</strong> pacientes por avisar.
           </p>
         </div>
         <button onClick={loadAppointments} style={btnGhost}>
@@ -84,13 +106,13 @@ export default function RemindersView() {
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(170px, 1fr))', gap: 12, marginBottom: '1.5rem' }}>
         <StatCard icon={<CalendarClock size={18} color="var(--sage-dark)" />} value={todayAppointments.length} label="Para hoy" />
         <StatCard icon={<BellRing size={18} color="var(--rose-dark)" />} value={tomorrowAppointments.length} label="Para manana" />
-        <StatCard icon={<CheckCircle2 size={18} color="var(--lavender-dark)" />} value={readyContacts} label="Con WhatsApp listo" />
+        <StatCard icon={<CheckCircle2 size={18} color="var(--lavender-dark)" />} value={sentIds.length} label="Enviados hoy" />
       </div>
 
       <div style={{ display: 'flex', alignItems: 'flex-start', gap: 10, background: 'white', border: '1px solid var(--cfg-border)', borderRadius: 16, padding: '1rem 1.1rem', marginBottom: '1.5rem' }}>
         <BellRing size={16} color="var(--rose-deep)" style={{ marginTop: 2, flexShrink: 0 }} />
         <p style={{ fontSize: 12.5, color: 'var(--muted)', fontWeight: 300, lineHeight: 1.65 }}>
-          Los recordatorios salen manualmente desde WhatsApp Web para mantener el flujo gratis. Si guardas el telefono con codigo de pais, el mensaje se abre listo para enviar.
+          Al tocar WhatsApp el recordatorio se marca como enviado (✓) automaticamente. Puedes tocar el check para desmarcarlo si hubo un error.
         </p>
       </div>
 
@@ -104,6 +126,8 @@ export default function RemindersView() {
             title={`Para hoy · ${formatLongDate(today)}`}
             appointments={todayAppointments}
             copiedId={copiedId}
+            sentIds={sentIds}
+            onToggleSent={toggleSent}
             onCopy={copyReminder}
             onWhatsapp={openWhatsapp}
           />
@@ -111,6 +135,8 @@ export default function RemindersView() {
             title={`Para manana · ${formatLongDate(tomorrow)}`}
             appointments={tomorrowAppointments}
             copiedId={copiedId}
+            sentIds={sentIds}
+            onToggleSent={toggleSent}
             onCopy={copyReminder}
             onWhatsapp={openWhatsapp}
           />
@@ -124,12 +150,16 @@ function ReminderSection({
   title,
   appointments,
   copiedId,
+  sentIds,
+  onToggleSent,
   onCopy,
   onWhatsapp,
 }: {
   title: string;
   appointments: Appointment[];
   copiedId: string | null;
+  sentIds: string[];
+  onToggleSent: (id: string) => void;
   onCopy: (appointment: Appointment) => void;
   onWhatsapp: (appointment: Appointment) => void;
 }) {
@@ -146,14 +176,20 @@ function ReminderSection({
           {appointments.map((appointment) => {
             const patient = appointment.patient as { name?: string | null; phone?: string | null; os?: string | null } | undefined;
             const whatsappReady = Boolean(normalizeWhatsappPhone(patient?.phone));
+            const isSent = sentIds.includes(appointment.id);
 
             return (
-              <div key={appointment.id} style={reminderCard}>
+              <div key={appointment.id} style={{ ...reminderCard, opacity: isSent ? 0.6 : 1, transition: 'all 0.3s ease' }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 14, flexWrap: 'wrap', width: '100%' }}>
-                  <div style={timeBadge}>{appointment.time}</div>
+                  <button 
+                    onClick={() => onToggleSent(appointment.id)}
+                    style={{ ...timeBadge, background: isSent ? 'var(--lavender)' : 'var(--sage)', color: isSent ? 'var(--lavender-deep)' : 'var(--sage-dark)', border: 'none', cursor: 'pointer' }}
+                  >
+                    {isSent ? <CheckCircle2 size={16} /> : appointment.time}
+                  </button>
 
                   <div style={{ flex: 1, minWidth: 220 }}>
-                    <p style={{ fontSize: 14.5, fontWeight: 500, color: 'var(--ink)' }}>
+                    <p style={{ fontSize: 14.5, fontWeight: 500, color: 'var(--ink)', textDecoration: isSent ? 'line-through' : 'none' }}>
                       {patient?.name || 'Paciente sin nombre'}
                     </p>
                     <p style={{ fontSize: 12.5, color: 'var(--muted)', marginTop: 3, fontWeight: 300, lineHeight: 1.5 }}>
@@ -163,17 +199,17 @@ function ReminderSection({
                   </div>
 
                   <span style={{ ...statusPill, ...(whatsappReady ? statusReady : statusMissing) }}>
-                    {whatsappReady ? 'WhatsApp listo' : 'Revisar telefono'}
+                    {whatsappReady ? (isSent ? 'Mensaje enviado' : 'WhatsApp listo') : 'Revisar telefono'}
                   </span>
 
                   <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-                    <button onClick={() => onWhatsapp(appointment)} disabled={!whatsappReady} style={{ ...btnPrimary, ...(whatsappReady ? {} : btnDisabled) }}>
+                    <button onClick={() => onWhatsapp(appointment)} disabled={!whatsappReady} style={{ ...btnPrimary, ...(whatsappReady ? {} : btnDisabled), background: isSent ? 'var(--faint)' : 'var(--ink)' }}>
                       <MessageCircle size={14} />
-                      WhatsApp
+                      {isSent ? 'Reenviar' : 'WhatsApp'}
                     </button>
                     <button onClick={() => onCopy(appointment)} style={btnGhost}>
                       <Copy size={14} />
-                      {copiedId === appointment.id ? 'Copiado' : 'Copiar texto'}
+                      {copiedId === appointment.id ? 'Copiado' : 'Copiar'}
                     </button>
                   </div>
                 </div>

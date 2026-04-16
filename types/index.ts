@@ -8,6 +8,15 @@ export type Patient = {
   notes?: string;
   created_at: string;
   clinical_history?: any;
+  odontogram?: Record<number, {
+    status: 'none' | 'to-treat' | 'treated' | 'absent';
+    notes?: string;
+  }>;
+  images?: Array<{
+    name: string;
+    url: string;
+    created_at: string;
+  }>;
 };
 
 export type Appointment = {
@@ -21,4 +30,22 @@ export type Appointment = {
   arrived_at?: string | null;
   created_at: string;
   patient?: Patient;
+};
+
+export type InventoryItem = {
+  id: string;
+  name: string;
+  stock: number;
+  min_stock: number;
+  unit: string;
+  created_at: string;
+};
+
+export type Payment = {
+  id: string;
+  patient_id: string;
+  amount: number;
+  date: string;
+  description: string;
+  created_at: string;
 };

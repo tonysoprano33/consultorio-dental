@@ -1,11 +1,13 @@
 'use client';
 
 import { useDeferredValue, useEffect, useMemo, useState, type CSSProperties } from 'react';
-import { FileText, Pencil, Plus, Search } from 'lucide-react';
+import { FileText, Pencil, Plus, Search, Trash2, User } from 'lucide-react';
+import Tooltip from '../Tooltip';
 import { createClient } from '../../lib/supabase';
 import { Patient } from '../../types';
 import ClinicalHistoryModal from './ClinicalHistoryModal';
 import PatientModal from './PatientModal';
+import PatientProfileModal from './PatientProfileModal';
 
 const supabase = createClient();
 
@@ -24,6 +26,10 @@ export default function PatientsView() {
   const [search, setSearch] = useState('');
   const [modalOpen, setModalOpen] = useState(false);
   const [editingPatient, setEditingPatient] = useState<Patient | null>(null);
+  
+  const [profileModalOpen, setProfileModalOpen] = useState(false);
+  const [selectedPatientForProfile, setSelectedPatientForProfile] = useState<Patient | null>(null);
+  
   const [historyModalOpen, setHistoryModalOpen] = useState(false);
   const [selectedPatientForHistory, setSelectedPatientForHistory] = useState<Patient | null>(null);
 
@@ -53,9 +59,25 @@ export default function PatientsView() {
     });
   }, [deferredSearch, patients]);
 
+  const openProfile = (patient: Patient) => {
+    setSelectedPatientForProfile(patient);
+    setProfileModalOpen(true);
+  };
+
   const openHistory = (patient: Patient) => {
     setSelectedPatientForHistory(patient);
     setHistoryModalOpen(true);
+  };
+
+  const deletePatient = async (id: string) => {
+    if (!confirm('¿Estás seguro de que deseas eliminar este paciente? Esta acción no se puede deshacer.')) return;
+
+    const { error } = await supabase.from('patients').delete().eq('id', id);
+    if (error) {
+      alert('Error al eliminar el paciente: ' + error.message);
+    } else {
+      void loadPatients();
+    }
   };
 
   return (
@@ -111,7 +133,7 @@ export default function PatientsView() {
             <div style={emptyIconWrapStyle}>
               <Search size={22} color="var(--sage-dark)" />
             </div>
-            <p style={{ fontSize: 15, fontWeight: 500, color: 'var(--ink)' }}>No se encontraron pacientes</p>
+            <p style={{ fontSize: 15, fontWeight: 500, color: 'var(--ink)' }}>No se encontraron pacientes</p>  
             <p style={{ fontSize: 13, color: 'var(--muted)', marginTop: 4, fontWeight: 300 }}>
               Probá con otro término de búsqueda
             </p>
@@ -147,21 +169,40 @@ export default function PatientsView() {
                       )}
                     </td>
                     <td style={{ ...tdStyle, paddingRight: 16 }}>
-                      <div style={{ display: 'flex', gap: 6, justifyContent: 'flex-end', flexWrap: 'wrap' }}>
-                        <button
-                          onClick={() => {
-                            setEditingPatient(patient);
-                            setModalOpen(true);
-                          }}
-                          style={btnIconBase}
-                        >
-                          <Pencil size={13} color="var(--muted)" />
-                          Editar
-                        </button>
-                        <button onClick={() => openHistory(patient)} style={{ ...btnIconBase, ...btnHistory }}>
-                          <FileText size={13} color="var(--lavender-dark)" />
-                          Historia
-                        </button>
+                      <div style={{ display: 'flex', gap: 6, justifyContent: 'flex-end', flexWrap: 'wrap' }}>  
+                        <Tooltip text="Modificar datos ✨">
+                          <button
+                            onClick={() => {
+                              setEditingPatient(patient);
+                              setModalOpen(true);
+                            }}
+                            style={btnIconBase}
+                          >
+                            <Pencil size={13} color="var(--muted)" />
+                            Editar
+                          </button>
+                        </Tooltip>
+                        
+                        <Tooltip text="Ver ficha personal 🦷">
+                          <button onClick={() => openProfile(patient)} style={{ ...btnIconBase, ...btnProfile }}>
+                            <User size={13} color="var(--sage-deep)" />
+                            Perfil
+                          </button>
+                        </Tooltip>
+
+                        <Tooltip text="Historia Clínica 📋">
+                          <button onClick={() => openHistory(patient)} style={{ ...btnIconBase, ...btnHistory }}>
+                            <FileText size={13} color="var(--lavender-dark)" />
+                            H.C.
+                          </button>
+                        </Tooltip>
+
+                        <Tooltip text="Eliminar paciente 🗑️">
+                          <button onClick={() => deletePatient(patient.id)} style={{ ...btnIconBase, ...btnDelete }}>
+                            <Trash2 size={13} color="var(--rose-deep)" />
+                            Eliminar
+                          </button>
+                        </Tooltip>
                       </div>
                     </td>
                   </tr>
@@ -188,6 +229,18 @@ export default function PatientsView() {
         onSaved={loadPatients}
       />
 
+      {selectedPatientForProfile && (
+        <PatientProfileModal
+          isOpen={profileModalOpen}
+          onClose={() => {
+            setProfileModalOpen(false);
+            setSelectedPatientForProfile(null);
+          }}
+          patient={selectedPatientForProfile}
+          onSaved={loadPatients}
+        />
+      )}
+
       {selectedPatientForHistory && (
         <ClinicalHistoryModal
           isOpen={historyModalOpen}
@@ -204,7 +257,7 @@ export default function PatientsView() {
 }
 
 const pageStyle: CSSProperties = {
-  maxWidth: 820,
+  maxWidth: 1200,
   margin: '0 auto',
   padding: '2.25rem 1.25rem 4rem',
   fontFamily: 'var(--font-dm-sans), sans-serif',
@@ -401,4 +454,15 @@ const btnHistory: CSSProperties = {
   background: 'var(--lavender)',
   borderColor: 'var(--lavender)',
   color: 'var(--lavender-deep)',
+};
+
+const btnProfile: CSSProperties = {
+  background: 'var(--sage)',
+  borderColor: 'var(--sage)',
+  color: 'var(--sage-deep)',
+};
+
+const btnDelete: CSSProperties = {
+  color: 'var(--rose-deep)',
+  borderColor: 'var(--rose-mid)',
 };

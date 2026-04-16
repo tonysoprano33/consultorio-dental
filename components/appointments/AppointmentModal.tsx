@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react';
 import { createClient } from '../../lib/supabase';
 import { getTodayDateString } from '../../lib/date-utils';
 import { Appointment } from '../../types';
-import { X, Save } from 'lucide-react';
+import { X, Save, Search } from 'lucide-react';
 
 const supabase = createClient();
 
@@ -13,23 +13,43 @@ interface Props {
   onClose: () => void;
   editAppt?: Appointment | null;
   onSaved: () => void;
+  initialDate?: string | null;
 }
 
-export default function AppointmentModal({ isOpen, onClose, editAppt, onSaved }: Props) {
+export default function AppointmentModal({ isOpen, onClose, editAppt, onSaved, initialDate }: Props) {
   const [patients, setPatients] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
-  const [form, setForm] = useState({ patientId: '', date: getTodayDateString(), time: '', reason: '', notes: '' });
+  const [form, setForm] = useState({ patientId: '', date: initialDate || getTodayDateString(), time: '', reason: '', notes: '' });
+  const [searchTerm, setSearchTerm] = useState('');
+  const [showSuggestions, setShowSuggestions] = useState(false);
 
   useEffect(() => {
     if (!isOpen) return;
     loadPatients();
-    if (editAppt) setForm({ patientId: editAppt.patient_id || '', date: editAppt.date, time: editAppt.time, reason: editAppt.reason || '', notes: editAppt.notes || '' });
-    else setForm({ patientId: '', date: getTodayDateString(), time: '', reason: '', notes: '' });
-  }, [isOpen, editAppt]);
+    if (editAppt) {
+      setForm({ patientId: editAppt.patient_id || '', date: editAppt.date, time: editAppt.time, reason: editAppt.reason || '', notes: editAppt.notes || '' });
+      setSearchTerm(editAppt.patient?.name || '');
+    } else {
+      setForm({ patientId: '', date: initialDate || getTodayDateString(), time: '', reason: '', notes: '' });
+      setSearchTerm('');
+    }
+    setShowSuggestions(false);
+  }, [isOpen, editAppt, initialDate]);
 
   const loadPatients = async () => {
     const { data } = await supabase.from('patients').select('id, name, os').order('name');
     setPatients(data || []);
+  };
+
+  const filteredPatients = patients.filter(p => {
+    const search = searchTerm.toLowerCase();
+    return p.name.toLowerCase().includes(search) || (p.os && p.os.toLowerCase().includes(search));
+  });
+
+  const selectPatient = (p: any) => {
+    setForm({ ...form, patientId: p.id });
+    setSearchTerm(p.name);
+    setShowSuggestions(false);
   };
 
   const handleSubmit = async () => {
@@ -72,10 +92,83 @@ export default function AppointmentModal({ isOpen, onClose, editAppt, onSaved }:
         {/* Body */}
         <div style={{ padding: '1.5rem 1.75rem', display: 'flex', flexDirection: 'column', gap: '1rem' }}>
           <MField label="Paciente *">
-            <select value={form.patientId} onChange={e => setForm({ ...form, patientId: e.target.value })} style={inp}>
-              <option value="">— Seleccionar paciente —</option>
-              {patients.map(p => <option key={p.id} value={p.id}>{p.name}{p.os ? ` (${p.os})` : ''}</option>)}
-            </select>
+            <div style={{ position: 'relative' }}>
+              <div style={{ position: 'relative' }}>
+                <Search size={14} style={{ position: 'absolute', left: 12, top: '50%', transform: 'translateY(-50%)', color: 'var(--muted)', zIndex: 1 }} />
+                <input 
+                  type="text" 
+                  placeholder="Buscar por nombre u obra social..." 
+                  value={searchTerm} 
+                  onChange={e => {
+                    setSearchTerm(e.target.value);
+                    setShowSuggestions(true);
+                  }}
+                  onFocus={() => setShowSuggestions(true)}
+                  onBlur={() => setTimeout(() => setShowSuggestions(false), 200)}
+                  style={{ ...inp, paddingLeft: 36 }}
+                />
+                {searchTerm && (
+                  <button 
+                    onClick={() => {
+                      setSearchTerm('');
+                      setForm({ ...form, patientId: '' });
+                    }}
+                    style={{ position: 'absolute', right: 10, top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', cursor: 'pointer', color: 'var(--muted)', display: 'flex', alignItems: 'center' }}
+                  >
+                    <X size={14} />
+                  </button>
+                )}
+              </div>
+
+              {/* Sugerencias */}
+              {showSuggestions && searchTerm.length > 0 && (
+                <div style={{ 
+                  position: 'absolute', 
+                  top: '100%', 
+                  left: 0, 
+                  right: 0, 
+                  backgroundColor: 'white', 
+                  border: '1px solid var(--cfg-border)', 
+                  borderRadius: 12, 
+                  marginTop: 4, 
+                  boxShadow: '0 4px 20px rgba(0,0,0,0.1)', 
+                  zIndex: 2000, 
+                  maxHeight: 200, 
+                  overflowY: 'auto' 
+                }}>
+                  {filteredPatients.length > 0 ? (
+                    filteredPatients.map(p => (
+                      <div 
+                        key={p.id} 
+                        onClick={() => selectPatient(p)}
+                        style={{ 
+                          padding: '10px 14px', 
+                          cursor: 'pointer', 
+                          borderBottom: '1px solid var(--cfg-border)',
+                          fontSize: 13,
+                          backgroundColor: form.patientId === p.id ? 'var(--sage-pale)' : 'transparent'
+                        }}
+                        onMouseEnter={(e) => e.currentTarget.style.backgroundColor = 'var(--cream)'}
+                        onMouseLeave={(e) => e.currentTarget.style.backgroundColor = form.patientId === p.id ? 'var(--sage-pale)' : 'transparent'}
+                      >
+                        <div style={{ fontWeight: 500, color: 'var(--ink)' }}>{p.name}</div>
+                        {p.os && <div style={{ fontSize: 11, color: 'var(--muted)' }}>{p.os}</div>}
+                      </div>
+                    ))
+                  ) : (
+                    <div style={{ padding: '12px 14px', fontSize: 13, color: 'var(--muted)', textAlign: 'center' }}>
+                      No se encontraron pacientes
+                    </div>
+                  )}
+                </div>
+              )}
+              
+              {!form.patientId && searchTerm.length > 0 && !showSuggestions && (
+                <div style={{ fontSize: 10, color: 'var(--danger-text)', marginTop: 4, fontWeight: 500 }}>
+                  ⚠️ Debes seleccionar un paciente de la lista
+                </div>
+              )}
+            </div>
           </MField>
 
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
