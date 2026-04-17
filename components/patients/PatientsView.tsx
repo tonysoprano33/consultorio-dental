@@ -121,6 +121,16 @@ export default function PatientsView() {
     return pages;
   };
 
+  const handleJumpToPage = (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    const formData = new FormData(e.currentTarget);
+    const pageNum = parseInt(formData.get('jumpPage') as string);
+    if (!isNaN(pageNum) && pageNum >= 1 && pageNum <= totalPages) {
+      setCurrentPage(pageNum);
+      e.currentTarget.reset();
+    }
+  };
+
   return (
     <div style={pageStyle}>
       <div style={headerStyle}>
@@ -149,7 +159,7 @@ export default function PatientsView() {
         </div>
       </div>
 
-      <div style={{ position: 'relative', marginBottom: '1rem' }}>
+      <div style={{ position: 'relative', marginBottom: '1.5rem' }}>
         <Search
           size={16}
           color="var(--faint)"
@@ -211,7 +221,7 @@ export default function PatientsView() {
                         )}
                       </td>
                       <td style={{ ...tdStyle, paddingRight: 16 }}>
-                        <div style={{ display: 'flex', gap: 6, justifyContent: 'flex-end', flexWrap: 'wrap' }}>  
+                        <div style={{ display: 'flex', gap: 6, justifyContent: 'flex-end', flexWrap: 'wrap' }}>                                                                                                                
                           <Tooltip text="Modificar datos ✨">
                             <button
                               onClick={() => {
@@ -220,28 +230,28 @@ export default function PatientsView() {
                               }}
                               style={btnIconBase}
                             >
-                              <Pencil size={13} color="var(--muted)" />
+                              <Pencil size={13} />
                               Editar
                             </button>
                           </Tooltip>
                           
                           <Tooltip text="Ver ficha personal 🦷">
                             <button onClick={() => openProfile(patient)} style={{ ...btnIconBase, ...btnProfile }}>
-                              <User size={13} color="var(--sage-deep)" />
+                              <User size={13} />
                               Perfil
                             </button>
                           </Tooltip>
 
                           <Tooltip text="Historia Clínica 📋">
                             <button onClick={() => openHistory(patient)} style={{ ...btnIconBase, ...btnHistory }}>
-                              <FileText size={13} color="var(--lavender-dark)" />
+                              <FileText size={13} />
                               H.C.
                             </button>
                           </Tooltip>
 
                           <Tooltip text="Eliminar paciente 🗑️">
                             <button onClick={() => deletePatient(patient.id)} style={{ ...btnIconBase, ...btnDelete }}>
-                              <Trash2 size={13} color="var(--rose-deep)" />
+                              <Trash2 size={13} />
                               Eliminar
                             </button>
                           </Tooltip>
@@ -256,32 +266,47 @@ export default function PatientsView() {
             {totalPages > 1 && (
               <div style={paginationContainerStyle}>
                 <div style={paginationInfoStyle}>
-                  Mostrando {((currentPage - 1) * ITEMS_PER_PAGE) + 1} a {Math.min(currentPage * ITEMS_PER_PAGE, filtered.length)} de {filtered.length}
+                  Mostrando <strong style={{ fontWeight: 500 }}>{((currentPage - 1) * ITEMS_PER_PAGE) + 1}</strong> a <strong style={{ fontWeight: 500 }}>{Math.min(currentPage * ITEMS_PER_PAGE, filtered.length)}</strong> de <strong style={{ fontWeight: 500 }}>{filtered.length}</strong>
                 </div>
-                <div style={paginationControlsStyle}>
-                  <button
-                    disabled={currentPage === 1}
-                    onClick={() => setCurrentPage(prev => prev - 1)}
-                    style={{
-                      ...paginationBtnStyle,
-                      ...(currentPage === 1 ? paginationBtnDisabledStyle : {}),
-                    }}
-                  >
-                    <ChevronLeft size={16} />
-                  </button>
-                  
-                  {renderPageNumbers()}
-                  
-                  <button
-                    disabled={currentPage === totalPages}
-                    onClick={() => setCurrentPage(prev => prev + 1)}
-                    style={{
-                      ...paginationBtnStyle,
-                      ...(currentPage === totalPages ? paginationBtnDisabledStyle : {}),
-                    }}
-                  >
-                    <ChevronRight size={16} />
-                  </button>
+                
+                <div style={{ display: 'flex', alignItems: 'center', gap: 20, flexWrap: 'wrap' }}>
+                  <form onSubmit={handleJumpToPage} style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                    <span style={{ fontSize: 12, color: 'var(--muted)' }}>Ir a:</span>
+                    <input 
+                      name="jumpPage"
+                      type="number" 
+                      min={1} 
+                      max={totalPages} 
+                      placeholder={currentPage.toString()}
+                      style={jumpInputStyle}
+                    />
+                  </form>
+
+                  <div style={paginationControlsStyle}>
+                    <button
+                      disabled={currentPage === 1}
+                      onClick={() => setCurrentPage(prev => prev - 1)}
+                      style={{
+                        ...paginationBtnStyle,
+                        ...(currentPage === 1 ? paginationBtnDisabledStyle : {}),
+                      }}
+                    >
+                      <ChevronLeft size={16} />
+                    </button>
+
+                    {renderPageNumbers()}
+
+                    <button
+                      disabled={currentPage === totalPages}
+                      onClick={() => setCurrentPage(prev => prev + 1)}
+                      style={{
+                        ...paginationBtnStyle,
+                        ...(currentPage === totalPages ? paginationBtnDisabledStyle : {}),
+                      }}
+                    >
+                      <ChevronRight size={16} />
+                    </button>
+                  </div>
                 </div>
               </div>
             )}
@@ -443,18 +468,19 @@ const btnNew: CSSProperties = {
   gap: 8,
   background: 'var(--ink)',
   color: '#fff',
-  border: 'none',
+  border: '1.5px solid var(--ink)',
   borderRadius: 12,
   padding: '11px 20px',
   fontSize: 13.5,
   fontFamily: 'var(--font-dm-sans), sans-serif',
   fontWeight: 400,
   cursor: 'pointer',
+  boxShadow: '0 2px 4px rgba(0,0,0,0.05)',
 };
 
 const searchInput: CSSProperties = {
   width: '100%',
-  background: 'var(--cream)',
+  background: 'var(--warm-white)',
   border: '1.5px solid var(--cfg-border)',
   borderRadius: 12,
   padding: '12px 16px 12px 44px',
@@ -463,6 +489,7 @@ const searchInput: CSSProperties = {
   fontFamily: 'var(--font-dm-sans), sans-serif',
   fontWeight: 300,
   outline: 'none',
+  boxShadow: '0 1px 2px rgba(0,0,0,0.02)',
 };
 
 const thStyle: CSSProperties = {
@@ -524,23 +551,38 @@ const btnIconBase: CSSProperties = {
   color: 'var(--muted)',
   padding: '0 10px',
   whiteSpace: 'nowrap',
+  boxShadow: '0 1px 2px rgba(0,0,0,0.03)',
+  transition: 'all 0.2s ease',
 };
 
 const btnHistory: CSSProperties = {
   background: 'var(--lavender)',
-  borderColor: 'var(--lavender)',
+  borderColor: 'var(--lavender-mid)',
   color: 'var(--lavender-deep)',
 };
 
 const btnProfile: CSSProperties = {
   background: 'var(--sage)',
-  borderColor: 'var(--sage)',
+  borderColor: 'var(--sage-mid)',
   color: 'var(--sage-deep)',
 };
 
 const btnDelete: CSSProperties = {
   color: 'var(--rose-deep)',
   borderColor: 'var(--rose-mid)',
+};
+
+const jumpInputStyle: CSSProperties = {
+  width: 50,
+  height: 32,
+  borderRadius: 8,
+  border: '1.5px solid var(--cfg-border)',
+  background: 'white',
+  textAlign: 'center',
+  fontSize: 13,
+  color: 'var(--ink)',
+  outline: 'none',
+  padding: '0 4px',
 };
 
 const paginationContainerStyle: CSSProperties = {
@@ -551,7 +593,7 @@ const paginationContainerStyle: CSSProperties = {
   borderTop: '1px solid var(--cfg-border)',
   background: 'var(--warm-white)',
   flexWrap: 'wrap',
-  gap: 12,
+  gap: 16,
 };
 
 const paginationInfoStyle: CSSProperties = {
