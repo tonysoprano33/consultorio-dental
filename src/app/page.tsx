@@ -2,7 +2,7 @@
 
 import dynamic from 'next/dynamic';
 import { startTransition, useCallback, useEffect, useState } from 'react';
-import { BarChart3, BellRing, Box, CalendarDays, Clock3, Settings, Users } from 'lucide-react';
+import { BarChart3, BellRing, Box, CalendarDays, Clock3, Settings, Sparkles, Users } from 'lucide-react';
 import { getTodayDateString } from '../../lib/date-utils';
 import { showBrowserNotification } from '../../lib/browser-notifications';
 import { createClient } from '../../lib/supabase';
@@ -211,28 +211,33 @@ export default function Dashboard() {
   return (
     <div className={styles.page}>
       <div className={styles.hero}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
-          <div style={{ 
-            background: 'white', 
-            width: 44, 
-            height: 44, 
-            borderRadius: 14, 
-            display: 'flex', 
-            alignItems: 'center', 
-            justifyContent: 'center',
-            boxShadow: '0 4px 12px rgba(0,0,0,0.05)',
-            fontSize: '1.5rem'
-          }}>
-            🦷
-          </div>
-          <div>
-            <div className={styles.heroBrand}>
-              Consultorio <em>Dental</em>
+        <div className={styles.heroContent}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '1.25rem' }}>
+            <div style={{ 
+              background: 'rgba(255,255,255,0.08)', 
+              width: 52, 
+              height: 52, 
+              borderRadius: 16, 
+              display: 'flex', 
+              alignItems: 'center', 
+              justifyContent: 'center',
+              boxShadow: '0 8px 24px rgba(0,0,0,0.12)',
+              border: '1px solid rgba(255,255,255,0.1)'
+            }}>
+              <Sparkles size={24} color="var(--sage-light)" />
             </div>
-            <p className={styles.heroTagline}>Agenda compartida para secretarias y doctora.</p>
+            <div>
+              <div className={styles.heroBrand}>
+                Consultorio <em>Dental</em>
+              </div>
+              <p className={styles.heroTagline}>Gestión profesional para odontología moderna.</p>
+            </div>
+          </div>
+          <div className={styles.heroMeta}>
+            <span style={{ opacity: 0.6, marginRight: '0.5rem' }}>●</span>
+            Dra. Nazarena
           </div>
         </div>
-        <div className={styles.heroMeta}>Dra. Nazarena</div>
       </div>
 
       <div className={styles.tabsShell}>
