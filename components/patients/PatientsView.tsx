@@ -10,7 +10,7 @@ import PatientModal from './PatientModal';
 import PatientProfileModal from './PatientProfileModal';
 
 const supabase = createClient();
-const ITEMS_PER_PAGE = 10;
+const ITEMS_PER_PAGE = 15;
 
 function getInitials(name: string) {
   return name
@@ -90,44 +90,6 @@ export default function PatientsView() {
       alert('Error al eliminar el paciente: ' + error.message);
     } else {
       void loadPatients();
-    }
-  };
-
-  const renderPageNumbers = () => {
-    const pages = [];
-    const maxVisiblePages = 5;
-    
-    let startPage = Math.max(1, currentPage - Math.floor(maxVisiblePages / 2));
-    let endPage = Math.min(totalPages, startPage + maxVisiblePages - 1);
-    
-    if (endPage - startPage + 1 < maxVisiblePages) {
-      startPage = Math.max(1, endPage - maxVisiblePages + 1);
-    }
-
-    for (let i = startPage; i <= endPage; i++) {
-      pages.push(
-        <button
-          key={i}
-          onClick={() => setCurrentPage(i)}
-          style={{
-            ...paginationBtnStyle,
-            ...(currentPage === i ? paginationBtnActiveStyle : {}),
-          }}
-        >
-          {i}
-        </button>
-      );
-    }
-    return pages;
-  };
-
-  const handleJumpToPage = (e: React.FormEvent<HTMLFormElement>) => {
-    e.preventDefault();
-    const formData = new FormData(e.currentTarget);
-    const pageNum = parseInt(formData.get('jumpPage') as string);
-    if (!isNaN(pageNum) && pageNum >= 1 && pageNum <= totalPages) {
-      setCurrentPage(pageNum);
-      e.currentTarget.reset();
     }
   };
 
@@ -264,50 +226,38 @@ export default function PatientsView() {
             </div>
 
             {totalPages > 1 && (
-              <div style={paginationContainerStyle}>
-                <div style={paginationInfoStyle}>
-                  Mostrando <strong style={{ fontWeight: 500 }}>{((currentPage - 1) * ITEMS_PER_PAGE) + 1}</strong> a <strong style={{ fontWeight: 500 }}>{Math.min(currentPage * ITEMS_PER_PAGE, filtered.length)}</strong> de <strong style={{ fontWeight: 500 }}>{filtered.length}</strong>
-                </div>
+              <div style={paginationContainer}>
+                <button
+                  disabled={currentPage === 1}
+                  onClick={() => setCurrentPage((p) => p - 1)}
+                  style={{ ...btnPagination, opacity: currentPage === 1 ? 0.4 : 1 }}
+                >
+                  Anterior
+                </button>
                 
-                <div style={{ display: 'flex', alignItems: 'center', gap: 20, flexWrap: 'wrap' }}>
-                  <form onSubmit={handleJumpToPage} style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                    <span style={{ fontSize: 12, color: 'var(--muted)' }}>Ir a:</span>
-                    <input 
-                      name="jumpPage"
-                      type="number" 
-                      min={1} 
-                      max={totalPages} 
-                      placeholder={currentPage.toString()}
-                      style={jumpInputStyle}
-                    />
-                  </form>
-
-                  <div style={paginationControlsStyle}>
-                    <button
-                      disabled={currentPage === 1}
-                      onClick={() => setCurrentPage(prev => prev - 1)}
-                      style={{
-                        ...paginationBtnStyle,
-                        ...(currentPage === 1 ? paginationBtnDisabledStyle : {}),
-                      }}
-                    >
-                      <ChevronLeft size={16} />
-                    </button>
-
-                    {renderPageNumbers()}
-
-                    <button
-                      disabled={currentPage === totalPages}
-                      onClick={() => setCurrentPage(prev => prev + 1)}
-                      style={{
-                        ...paginationBtnStyle,
-                        ...(currentPage === totalPages ? paginationBtnDisabledStyle : {}),
-                      }}
-                    >
-                      <ChevronRight size={16} />
-                    </button>
-                  </div>
+                <div style={paginationJumpWrapper}>
+                  <span>Página</span>
+                  <input
+                    type="number"
+                    min={1}
+                    max={totalPages}
+                    value={currentPage}
+                    onChange={(e) => {
+                      const val = parseInt(e.target.value);
+                      if (val >= 1 && val <= totalPages) setCurrentPage(val);
+                    }}
+                    style={jumpInputStyle}
+                  />
+                  <span>de {totalPages}</span>
                 </div>
+
+                <button
+                  disabled={currentPage === totalPages}
+                  onClick={() => setCurrentPage((p) => p + 1)}
+                  style={{ ...btnPagination, opacity: currentPage === totalPages ? 0.4 : 1 }}
+                >
+                  Siguiente
+                </button>
               </div>
             )}
           </>
@@ -572,68 +522,47 @@ const btnDelete: CSSProperties = {
   borderColor: 'var(--rose-mid)',
 };
 
-const jumpInputStyle: CSSProperties = {
-  width: 50,
-  height: 32,
-  borderRadius: 8,
-  border: '1.5px solid var(--cfg-border)',
-  background: 'white',
-  textAlign: 'center',
-  fontSize: 13,
-  color: 'var(--ink)',
-  outline: 'none',
-  padding: '0 4px',
-};
-
-const paginationContainerStyle: CSSProperties = {
+const paginationContainer: CSSProperties = {
   display: 'flex',
   alignItems: 'center',
-  justifyContent: 'space-between',
-  padding: '1rem 1.25rem',
+  justifyContent: 'center',
+  gap: 20,
+  padding: '1.25rem',
   borderTop: '1px solid var(--cfg-border)',
-  background: 'var(--warm-white)',
-  flexWrap: 'wrap',
-  gap: 16,
+  background: '#fafafa',
 };
 
-const paginationInfoStyle: CSSProperties = {
+const btnPagination: CSSProperties = {
+  padding: '8px 16px',
+  borderRadius: 8,
+  border: '1px solid var(--cfg-border)',
+  background: 'white',
+  fontSize: 12,
+  fontWeight: 500,
+  color: 'var(--ink)',
+  cursor: 'pointer',
+  transition: 'all 0.2s ease',
+  outline: 'none',
+};
+
+const paginationJumpWrapper: CSSProperties = {
+  display: 'flex',
+  alignItems: 'center',
+  gap: 8,
   fontSize: 13,
   color: 'var(--muted)',
   fontWeight: 300,
 };
 
-const paginationControlsStyle: CSSProperties = {
-  display: 'flex',
-  alignItems: 'center',
-  gap: 6,
-};
-
-const paginationBtnStyle: CSSProperties = {
-  display: 'inline-flex',
-  alignItems: 'center',
-  justifyContent: 'center',
-  minWidth: 32,
-  height: 32,
-  padding: '0 8px',
-  borderRadius: 8,
-  border: '1.5px solid var(--cfg-border)',
+const jumpInputStyle: CSSProperties = {
+  width: 50,
+  padding: '4px 6px',
+  borderRadius: 6,
+  border: '1px solid var(--cfg-border)',
+  textAlign: 'center',
   background: 'white',
+  fontWeight: 600,
   color: 'var(--ink)',
   fontSize: 13,
-  fontWeight: 400,
-  cursor: 'pointer',
-  transition: 'all 0.2s ease',
-};
-
-const paginationBtnActiveStyle: CSSProperties = {
-  background: 'var(--sage-mid)',
-  borderColor: 'var(--sage-mid)',
-  color: 'white',
-  fontWeight: 600,
-};
-
-const paginationBtnDisabledStyle: CSSProperties = {
-  opacity: 0.4,
-  cursor: 'not-allowed',
-  background: 'var(--cream)',
+  outline: 'none',
 };
