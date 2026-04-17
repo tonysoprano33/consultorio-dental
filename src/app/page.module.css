@@ -120,6 +120,8 @@
   }
 }
 
+.tabButton {
+  border: none;
   border-bottom: 3px solid transparent;
   border-top-left-radius: 14px;
   border-top-right-radius: 14px;
