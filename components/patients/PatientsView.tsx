@@ -1,7 +1,7 @@
 'use client';
 
 import { useDeferredValue, useEffect, useMemo, useState, type CSSProperties } from 'react';
-import { FileText, Pencil, Plus, Search, Trash2, User } from 'lucide-react';
+import { ChevronLeft, ChevronRight, FileText, Pencil, Plus, Search, Trash2, User } from 'lucide-react';
 import Tooltip from '../Tooltip';
 import { createClient } from '../../lib/supabase';
 import { Patient } from '../../types';
@@ -10,6 +10,7 @@ import PatientModal from './PatientModal';
 import PatientProfileModal from './PatientProfileModal';
 
 const supabase = createClient();
+const ITEMS_PER_PAGE = 10;
 
 function getInitials(name: string) {
   return name
@@ -24,6 +25,7 @@ export default function PatientsView() {
   const [patients, setPatients] = useState<Patient[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
+  const [currentPage, setCurrentPage] = useState(1);
   const [modalOpen, setModalOpen] = useState(false);
   const [editingPatient, setEditingPatient] = useState<Patient | null>(null);
   
@@ -59,6 +61,17 @@ export default function PatientsView() {
     });
   }, [deferredSearch, patients]);
 
+  // Reset to first page when search changes
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [deferredSearch]);
+
+  const totalPages = Math.ceil(filtered.length / ITEMS_PER_PAGE);
+  const paginatedPatients = useMemo(() => {
+    const start = (currentPage - 1) * ITEMS_PER_PAGE;
+    return filtered.slice(start, start + ITEMS_PER_PAGE);
+  }, [filtered, currentPage]);
+
   const openProfile = (patient: Patient) => {
     setSelectedPatientForProfile(patient);
     setProfileModalOpen(true);
@@ -78,6 +91,34 @@ export default function PatientsView() {
     } else {
       void loadPatients();
     }
+  };
+
+  const renderPageNumbers = () => {
+    const pages = [];
+    const maxVisiblePages = 5;
+    
+    let startPage = Math.max(1, currentPage - Math.floor(maxVisiblePages / 2));
+    let endPage = Math.min(totalPages, startPage + maxVisiblePages - 1);
+    
+    if (endPage - startPage + 1 < maxVisiblePages) {
+      startPage = Math.max(1, endPage - maxVisiblePages + 1);
+    }
+
+    for (let i = startPage; i <= endPage; i++) {
+      pages.push(
+        <button
+          key={i}
+          onClick={() => setCurrentPage(i)}
+          style={{
+            ...paginationBtnStyle,
+            ...(currentPage === i ? paginationBtnActiveStyle : {}),
+          }}
+        >
+          {i}
+        </button>
+      );
+    }
+    return pages;
   };
 
   return (
@@ -139,77 +180,112 @@ export default function PatientsView() {
             </p>
           </div>
         ) : (
-          <div style={{ overflowX: 'auto' }}>
-            <table style={tableStyle}>
-              <thead>
-                <tr style={{ borderBottom: '1px solid var(--cfg-border)' }}>
-                  {['Paciente', 'DNI', 'Teléfono', 'Obra social', ''].map((header) => (
-                    <th key={header} style={thStyle}>
-                      {header}
-                    </th>
-                  ))}
-                </tr>
-              </thead>
-              <tbody>
-                {filtered.map((patient) => (
-                  <tr key={patient.id} style={{ borderBottom: '1px solid var(--cfg-border)' }}>
-                    <td style={tdStyle}>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                        <div style={avatarStyle}>{getInitials(patient.name)}</div>
-                        <span style={{ fontWeight: 500 }}>{patient.name}</span>
-                      </div>
-                    </td>
-                    <td style={{ ...tdStyle, color: 'var(--muted)', fontWeight: 300 }}>{patient.dni || '—'}</td>
-                    <td style={{ ...tdStyle, color: 'var(--muted)', fontWeight: 300 }}>{patient.phone || '—'}</td>
-                    <td style={tdStyle}>
-                      {patient.os ? (
-                        <span style={osPill}>{patient.os}</span>
-                      ) : (
-                        <span style={{ color: 'var(--muted)', fontWeight: 300 }}>—</span>
-                      )}
-                    </td>
-                    <td style={{ ...tdStyle, paddingRight: 16 }}>
-                      <div style={{ display: 'flex', gap: 6, justifyContent: 'flex-end', flexWrap: 'wrap' }}>  
-                        <Tooltip text="Modificar datos ✨">
-                          <button
-                            onClick={() => {
-                              setEditingPatient(patient);
-                              setModalOpen(true);
-                            }}
-                            style={btnIconBase}
-                          >
-                            <Pencil size={13} color="var(--muted)" />
-                            Editar
-                          </button>
-                        </Tooltip>
-                        
-                        <Tooltip text="Ver ficha personal 🦷">
-                          <button onClick={() => openProfile(patient)} style={{ ...btnIconBase, ...btnProfile }}>
-                            <User size={13} color="var(--sage-deep)" />
-                            Perfil
-                          </button>
-                        </Tooltip>
-
-                        <Tooltip text="Historia Clínica 📋">
-                          <button onClick={() => openHistory(patient)} style={{ ...btnIconBase, ...btnHistory }}>
-                            <FileText size={13} color="var(--lavender-dark)" />
-                            H.C.
-                          </button>
-                        </Tooltip>
-
-                        <Tooltip text="Eliminar paciente 🗑️">
-                          <button onClick={() => deletePatient(patient.id)} style={{ ...btnIconBase, ...btnDelete }}>
-                            <Trash2 size={13} color="var(--rose-deep)" />
-                            Eliminar
-                          </button>
-                        </Tooltip>
-                      </div>
-                    </td>
+          <>
+            <div style={{ overflowX: 'auto' }}>
+              <table style={tableStyle}>
+                <thead>
+                  <tr style={{ borderBottom: '1px solid var(--cfg-border)' }}>
+                    {['Paciente', 'DNI', 'Teléfono', 'Obra social', ''].map((header) => (
+                      <th key={header} style={thStyle}>
+                        {header}
+                      </th>
+                    ))}
                   </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+                </thead>
+                <tbody>
+                  {paginatedPatients.map((patient) => (
+                    <tr key={patient.id} style={{ borderBottom: '1px solid var(--cfg-border)' }}>
+                      <td style={tdStyle}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                          <div style={avatarStyle}>{getInitials(patient.name)}</div>
+                          <span style={{ fontWeight: 500 }}>{patient.name}</span>
+                        </div>
+                      </td>
+                      <td style={{ ...tdStyle, color: 'var(--muted)', fontWeight: 300 }}>{patient.dni || '—'}</td>
+                      <td style={{ ...tdStyle, color: 'var(--muted)', fontWeight: 300 }}>{patient.phone || '—'}</td>
+                      <td style={tdStyle}>
+                        {patient.os ? (
+                          <span style={osPill}>{patient.os}</span>
+                        ) : (
+                          <span style={{ color: 'var(--muted)', fontWeight: 300 }}>—</span>
+                        )}
+                      </td>
+                      <td style={{ ...tdStyle, paddingRight: 16 }}>
+                        <div style={{ display: 'flex', gap: 6, justifyContent: 'flex-end', flexWrap: 'wrap' }}>  
+                          <Tooltip text="Modificar datos ✨">
+                            <button
+                              onClick={() => {
+                                setEditingPatient(patient);
+                                setModalOpen(true);
+                              }}
+                              style={btnIconBase}
+                            >
+                              <Pencil size={13} color="var(--muted)" />
+                              Editar
+                            </button>
+                          </Tooltip>
+                          
+                          <Tooltip text="Ver ficha personal 🦷">
+                            <button onClick={() => openProfile(patient)} style={{ ...btnIconBase, ...btnProfile }}>
+                              <User size={13} color="var(--sage-deep)" />
+                              Perfil
+                            </button>
+                          </Tooltip>
+
+                          <Tooltip text="Historia Clínica 📋">
+                            <button onClick={() => openHistory(patient)} style={{ ...btnIconBase, ...btnHistory }}>
+                              <FileText size={13} color="var(--lavender-dark)" />
+                              H.C.
+                            </button>
+                          </Tooltip>
+
+                          <Tooltip text="Eliminar paciente 🗑️">
+                            <button onClick={() => deletePatient(patient.id)} style={{ ...btnIconBase, ...btnDelete }}>
+                              <Trash2 size={13} color="var(--rose-deep)" />
+                              Eliminar
+                            </button>
+                          </Tooltip>
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+
+            {totalPages > 1 && (
+              <div style={paginationContainerStyle}>
+                <div style={paginationInfoStyle}>
+                  Mostrando {((currentPage - 1) * ITEMS_PER_PAGE) + 1} a {Math.min(currentPage * ITEMS_PER_PAGE, filtered.length)} de {filtered.length}
+                </div>
+                <div style={paginationControlsStyle}>
+                  <button
+                    disabled={currentPage === 1}
+                    onClick={() => setCurrentPage(prev => prev - 1)}
+                    style={{
+                      ...paginationBtnStyle,
+                      ...(currentPage === 1 ? paginationBtnDisabledStyle : {}),
+                    }}
+                  >
+                    <ChevronLeft size={16} />
+                  </button>
+                  
+                  {renderPageNumbers()}
+                  
+                  <button
+                    disabled={currentPage === totalPages}
+                    onClick={() => setCurrentPage(prev => prev + 1)}
+                    style={{
+                      ...paginationBtnStyle,
+                      ...(currentPage === totalPages ? paginationBtnDisabledStyle : {}),
+                    }}
+                  >
+                    <ChevronRight size={16} />
+                  </button>
+                </div>
+              </div>
+            )}
+          </>
         )}
       </div>
 
@@ -465,4 +541,57 @@ const btnProfile: CSSProperties = {
 const btnDelete: CSSProperties = {
   color: 'var(--rose-deep)',
   borderColor: 'var(--rose-mid)',
+};
+
+const paginationContainerStyle: CSSProperties = {
+  display: 'flex',
+  alignItems: 'center',
+  justifyContent: 'space-between',
+  padding: '1rem 1.25rem',
+  borderTop: '1px solid var(--cfg-border)',
+  background: 'var(--warm-white)',
+  flexWrap: 'wrap',
+  gap: 12,
+};
+
+const paginationInfoStyle: CSSProperties = {
+  fontSize: 13,
+  color: 'var(--muted)',
+  fontWeight: 300,
+};
+
+const paginationControlsStyle: CSSProperties = {
+  display: 'flex',
+  alignItems: 'center',
+  gap: 6,
+};
+
+const paginationBtnStyle: CSSProperties = {
+  display: 'inline-flex',
+  alignItems: 'center',
+  justifyContent: 'center',
+  minWidth: 32,
+  height: 32,
+  padding: '0 8px',
+  borderRadius: 8,
+  border: '1.5px solid var(--cfg-border)',
+  background: 'white',
+  color: 'var(--ink)',
+  fontSize: 13,
+  fontWeight: 400,
+  cursor: 'pointer',
+  transition: 'all 0.2s ease',
+};
+
+const paginationBtnActiveStyle: CSSProperties = {
+  background: 'var(--sage-mid)',
+  borderColor: 'var(--sage-mid)',
+  color: 'white',
+  fontWeight: 600,
+};
+
+const paginationBtnDisabledStyle: CSSProperties = {
+  opacity: 0.4,
+  cursor: 'not-allowed',
+  background: 'var(--cream)',
 };
