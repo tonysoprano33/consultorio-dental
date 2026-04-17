@@ -1,5 +1,6 @@
 import type { Metadata, Viewport } from 'next';
 import type { ReactNode } from 'react';
+import { Analytics } from '@vercel/analytics/react';
 import PwaBootstrap from '../../components/PwaBootstrap';
 import './globals.css';
 
@@ -33,6 +34,7 @@ export default function RootLayout({ children }: { children: ReactNode }) {
       <body>
         <PwaBootstrap />
         {children}
+        <Analytics />
       </body>
     </html>
   );
