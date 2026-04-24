@@ -31,21 +31,32 @@ export default function InventoryView() {
     
     setItems(items.map(i => i.id === id ? { ...i, stock: newStock } : i));
     
-    await supabase.from('inventory').update({ stock: newStock }).eq('id', id);
+    const { error } = await supabase.from('inventory').update({ stock: newStock }).eq('id', id);
+    if (error) {
+      alert('Error al actualizar stock: ' + error.message);
+      void loadItems(); // Revert to server state
+    }
   };
 
   const saveItem = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!editingItem?.name) return;
-
-    if (editingItem.id) {
-      await supabase.from('inventory').update(editingItem).eq('id', editingItem.id);
-    } else {
-      await supabase.from('inventory').insert([editingItem]);
+    if (!editingItem?.name) {
+      alert('El nombre es obligatorio');
+      return;
     }
+
+    setLoading(true);
+    const { error } = editingItem.id 
+      ? await supabase.from('inventory').update(editingItem).eq('id', editingItem.id)
+      : await supabase.from('inventory').insert([editingItem]);
     
-    setModalOpen(false);
-    void loadItems();
+    if (error) {
+      alert('Error al guardar: ' + error.message);
+      setLoading(false);
+    } else {
+      setModalOpen(false);
+      void loadItems();
+    }
   };
 
   const deleteItem = async (id: string) => {

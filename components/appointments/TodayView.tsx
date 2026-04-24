@@ -10,8 +10,10 @@ import { createClient } from '../../lib/supabase';
 import { Appointment } from '../../types';
 import AppointmentModal from './AppointmentModal';
 import styles from './TodayView.module.css';
+import { getDurationFromNotes, minutesToTime, timeToMinutes } from '../../lib/appointment-utils';
 
 const supabase = createClient();
+const SYSTEM_BLOCK_PATIENT_ID = 'b3614d2b-fa80-4c38-80b2-1458c78e4273';
 
 function getInitials(name: string) {
   return name
@@ -242,6 +244,36 @@ export default function TodayView() {
               const patient = appointment.patient as PatientPreview | undefined;
               const isArrived = appointment.status === 'arrived';
               const isSaving = savingArrivalId === appointment.id;
+              const isSystemBlock = appointment.patient_id === SYSTEM_BLOCK_PATIENT_ID;
+              
+              const duration = getDurationFromNotes(appointment.notes);
+              const endMinutes = timeToMinutes(appointment.time) + duration;
+              const endTime = minutesToTime(endMinutes);
+
+              if (isSystemBlock) {
+                return (
+                  <div key={appointment.id} className={styles.appointmentCard} style={{ backgroundColor: '#fee2e2', borderColor: '#f87171' }}>
+                    <div className={styles.patientRow}>
+                      <div className={styles.timeCluster}>
+                        <span className={styles.time} style={{ color: '#991b1b' }}>{appointment.time}</span>
+                        <span className={styles.divider} />
+                        <div className={styles.avatar} style={{ backgroundColor: '#f87171', color: 'white' }}>!</div>
+                      </div>
+                      <div className={styles.copy}>
+                        <p className={styles.patientName} style={{ color: '#991b1b' }}>DÍA NO LABORABLE</p>
+                        <div className={styles.metaRow}>
+                          <span className={styles.reason} style={{ color: '#b91c1c' }}>Bloqueo de agenda</span>
+                        </div>
+                      </div>
+                    </div>
+                    <div className={styles.controls}>
+                      <button onClick={() => deleteAppointment(appointment.id)} className={`${styles.iconButton} ${styles.iconButtonDanger}`}>
+                        <Trash2 size={14} color="#991b1b" />
+                      </button>
+                    </div>
+                  </div>
+                );
+              }
 
               return (
                 <div
@@ -250,7 +282,10 @@ export default function TodayView() {
                 >
                   <div className={styles.patientRow}>
                     <div className={styles.timeCluster}>
-                      <span className={styles.time}>{appointment.time}</span>
+                      <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+                        <span className={styles.time}>{appointment.time}</span>
+                        <span style={{ fontSize: '0.65rem', color: 'var(--muted)', marginTop: -2 }}>{endTime}</span>
+                      </div>
                       <span className={styles.divider} />
                       <div className={`${styles.avatar} ${isArrived ? styles.avatarArrived : ''}`}>
                         {getInitials(patient?.name || '?')}
@@ -261,6 +296,7 @@ export default function TodayView() {
                       <p className={styles.patientName}>{patient?.name || 'Paciente sin nombre'}</p>
                       <div className={styles.metaRow}>
                         <span className={styles.reason}>{appointment.reason || 'Consulta'}</span>
+                        <span style={{ fontSize: '0.65rem', color: 'var(--muted)', background: 'var(--cream)', padding: '1px 5px', borderRadius: '4px' }}>{duration} min</span>
                         {patient?.os && <span className={styles.insurance}>{patient.os}</span>}
                       </div>
                     </div>

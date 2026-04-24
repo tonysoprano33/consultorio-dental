@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from 'react';
 import { BarChart3, TrendingUp, Users, Calendar, ArrowUpRight, ArrowDownRight } from 'lucide-react';
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell } from 'recharts';
 import { createClient } from '../../lib/supabase';
 import { subDays, startOfMonth, endOfMonth, format, isAfter, parseISO } from 'date-fns';
 import { Appointment, Patient } from '../../types';
@@ -61,16 +62,18 @@ export default function StatsView() {
       .sort(([, a], [, b]) => b - a)
       .slice(0, 5);
 
-    // Group by day of week
-    const daysMap: Record<string, number> = { 'Lun': 0, 'Mar': 0, 'Mie': 0, 'Jue': 0, 'Vie': 0, 'Sab': 0 };
+    // Group by day of week (Lunes a Viernes)
+    const daysMap: Record<string, number> = { 'Lun': 0, 'Mar': 0, 'Mie': 0, 'Jue': 0, 'Vie': 0 };
     appointments.forEach(a => {
       const dayName = format(parseISO(a.date), 'eee');
-      const map: Record<string, string> = { 'Mon': 'Lun', 'Tue': 'Mar', 'Wed': 'Mie', 'Thu': 'Jue', 'Fri': 'Vie', 'Sat': 'Sab', 'Sun': 'Dom' };
-      const translated = map[dayName] || dayName;
-      if (daysMap[translated] !== undefined) daysMap[translated]++;
+      const map: Record<string, string> = { 'Mon': 'Lun', 'Tue': 'Mar', 'Wed': 'Mie', 'Thu': 'Jue', 'Fri': 'Vie' };
+      const translated = map[dayName];
+      if (translated && daysMap[translated] !== undefined) daysMap[translated]++;
     });
 
-    return { totalAppts, completed, pending, newPts, topReasons, daysMap };
+    const chartData = Object.entries(daysMap).map(([name, count]) => ({ name, count }));
+
+    return { totalAppts, completed, pending, newPts, topReasons, chartData };
   }, [appointments, patients]);
 
   if (loading) {
@@ -113,19 +116,47 @@ export default function StatsView() {
       <div style={{ ...chartsGrid, gridTemplateColumns: isMobile ? '1fr' : 'repeat(auto-fit, minmax(400px, 1fr))' }}>
         <section style={{ ...card, padding: isMobile ? '1.25rem' : card.padding }}>
           <h2 style={cardTitle}>Actividad por Día</h2>
-          <div style={{ ...chartContainer, height: isMobile ? 160 : 180, padding: isMobile ? '0 4px' : chartContainer.padding }}>
-            {Object.entries(stats.daysMap).map(([day, count]) => {
-              const max = Math.max(...Object.values(stats.daysMap), 1);
-              const height = (count / max) * 100;
-              return (
-                <div key={day} style={barWrapper}>
-                  <div style={{ ...bar, height: `${height}%`, width: isMobile ? '75%' : '60%' }}>
-                    <span style={{ ...barValue, fontSize: isMobile ? 10 : 11 }}>{count}</span>
-                  </div>
-                  <span style={{ ...barLabel, fontSize: isMobile ? 10 : 11 }}>{day}</span>
-                </div>
-              );
-            })}
+          <div style={{ height: 250, width: '100%', marginTop: '1rem' }}>
+            <ResponsiveContainer width="100%" height="100%">
+              <BarChart data={stats.chartData} margin={{ top: 20, right: 10, left: -20, bottom: 0 }}>
+                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="var(--cfg-border)" />
+                <XAxis 
+                  dataKey="name" 
+                  axisLine={false} 
+                  tickLine={false} 
+                  tick={{ fill: 'var(--muted)', fontSize: 12, fontWeight: 600 }}
+                  dy={10}
+                />
+                <YAxis 
+                  axisLine={false} 
+                  tickLine={false} 
+                  tick={{ fill: 'var(--faint)', fontSize: 11 }}
+                />
+                <Tooltip 
+                  cursor={{ fill: 'var(--cream)', opacity: 0.4 }}
+                  contentStyle={{ 
+                    borderRadius: '12px', 
+                    border: '1px solid var(--cfg-border)',
+                    boxShadow: '0 10px 15px -3px rgba(0,0,0,0.1)',
+                    fontSize: '12px'
+                  }}
+                />
+                <Bar 
+                  dataKey="count" 
+                  radius={[6, 6, 0, 0]} 
+                  barSize={isMobile ? 30 : 45}
+                >
+                  {stats.chartData.map((entry, index) => (
+                    <Cell 
+                      key={`cell-${index}`} 
+                      fill={entry.count === Math.max(...stats.chartData.map(d => d.count)) && entry.count > 0 
+                        ? 'var(--sage-dark)' 
+                        : 'var(--sage)'} 
+                    />
+                  ))}
+                </Bar>
+              </BarChart>
+            </ResponsiveContainer>
           </div>
         </section>
 
@@ -177,11 +208,6 @@ const statSub: React.CSSProperties = { fontSize: 12, color: 'var(--faint)', font
 const chartsGrid: React.CSSProperties = { display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(400px, 1fr))', gap: 20 };
 const card: React.CSSProperties = { background: 'white', border: '1px solid var(--cfg-border)', borderRadius: 24, padding: '1.75rem' };
 const cardTitle: React.CSSProperties = { fontSize: 16, fontWeight: 600, color: 'var(--ink)', marginBottom: '1.5rem' };
-const chartContainer: React.CSSProperties = { display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between', height: 180, padding: '0 10px' };
-const barWrapper: React.CSSProperties = { display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 8, flex: 1 };
-const bar: React.CSSProperties = { width: '60%', background: 'var(--sage)', borderRadius: '6px 6px 4px 4px', position: 'relative', transition: 'height 0.5s ease', minHeight: 4 };
-const barValue: React.CSSProperties = { position: 'absolute', top: -20, left: '50%', transform: 'translateX(-50%)', fontSize: 11, fontWeight: 600, color: 'var(--sage-deep)' };
-const barLabel: React.CSSProperties = { fontSize: 11, color: 'var(--muted)', fontWeight: 400 };
 const reasonsList: React.CSSProperties = { display: 'grid', gap: 16 };
 const reasonItem: React.CSSProperties = { display: 'grid', gap: 6 };
 const reasonInfo: React.CSSProperties = { display: 'flex', justifyContent: 'space-between', alignItems: 'center' };

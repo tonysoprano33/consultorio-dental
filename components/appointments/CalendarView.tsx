@@ -1,7 +1,7 @@
 'use client';
 
 import { useMemo, useState, useEffect } from 'react';
-import { ChevronLeft, ChevronRight, Check, Plus, MessageCircle, Share2, Calendar as CalendarIcon, Pencil } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Check, Plus, MessageCircle, Share2, Calendar as CalendarIcon, Pencil, Ban, UserX } from 'lucide-react';
 import { 
   format, 
   addMonths, 
@@ -18,8 +18,10 @@ import { es } from 'date-fns/locale';
 import { Appointment } from '../../types';
 import { createClient } from '../../lib/supabase';
 import Tooltip from '../Tooltip';
+import { getDurationFromNotes, minutesToTime, timeToMinutes } from '../../lib/appointment-utils';
 
 const supabase = createClient();
+const SYSTEM_BLOCK_PATIENT_ID = 'b3614d2b-fa80-4c38-80b2-1458c78e4273';
 
 interface CalendarViewProps {
   appointments: Appointment[];
@@ -35,6 +37,7 @@ export default function CalendarView({ appointments, onEdit, onNew, onShare, onD
   const [selectedDate, setSelectedDate] = useState<Date | null>(new Date());
   const [savingArrivalId, setSavingArrivalId] = useState<string | null>(null);
   const [isMobile, setIsMobile] = useState(false);
+  const [isBlocking, setIsBlocking] = useState(false);
 
   useEffect(() => {
     const checkMobile = () => setIsMobile(window.innerWidth < 768);
@@ -53,13 +56,19 @@ export default function CalendarView({ appointments, onEdit, onNew, onShare, onD
     end: endDate,
   });
 
-  const appointmentsByDate = useMemo(() => {
-    const map: Record<string, Appointment[]> = {};
+  const { normalAppointmentsByDate, blockedDates } = useMemo(() => {
+    const normalMap: Record<string, Appointment[]> = {};
+    const blockedSet = new Set<string>();
+    
     appointments.forEach((appt) => {
-      if (!map[appt.date]) map[appt.date] = [];
-      map[appt.date].push(appt);
+      if (appt.patient_id === SYSTEM_BLOCK_PATIENT_ID) {
+        blockedSet.add(appt.date);
+      } else {
+        if (!normalMap[appt.date]) normalMap[appt.date] = [];
+        normalMap[appt.date].push(appt);
+      }
     });
-    return map;
+    return { normalAppointmentsByDate: normalMap, blockedDates: blockedSet };
   }, [appointments]);
 
   const nextMonth = () => setCurrentMonth(addMonths(currentMonth, 1));
@@ -71,7 +80,8 @@ export default function CalendarView({ appointments, onEdit, onNew, onShare, onD
   };
 
   const selectedDateStr = selectedDate ? format(selectedDate, 'yyyy-MM-dd') : '';
-  const selectedDayAppointments = appointmentsByDate[selectedDateStr] || [];
+  const selectedDayAppointments = normalAppointmentsByDate[selectedDateStr] || [];
+  const isSelectedDateBlocked = blockedDates.has(selectedDateStr);
 
   const toggleArrived = async (id: string) => {
     setSavingArrivalId(id);
@@ -91,6 +101,40 @@ export default function CalendarView({ appointments, onEdit, onNew, onShare, onD
       alert('No se pudo actualizar el estado.');
     } finally {
       setSavingArrivalId(null);
+    }
+  };
+
+  const toggleBlockDay = async () => {
+    if (!selectedDate) return;
+    setIsBlocking(true);
+    try {
+      if (isSelectedDateBlocked) {
+        // Unblock: delete the system appointment
+        const { error } = await supabase
+          .from('appointments')
+          .delete()
+          .eq('date', selectedDateStr)
+          .eq('patient_id', SYSTEM_BLOCK_PATIENT_ID);
+        if (error) throw error;
+      } else {
+        // Block: create a system appointment
+        const { error } = await supabase
+          .from('appointments')
+          .insert([{
+            date: selectedDateStr,
+            time: '00:00',
+            patient_id: SYSTEM_BLOCK_PATIENT_ID,
+            reason: 'DÍA NO LABORABLE (BLOQUEO)',
+            status: 'pending'
+          }]);
+        if (error) throw error;
+      }
+      onRefresh();
+    } catch (error) {
+      console.error('Error toggling block:', error);
+      alert('No se pudo cambiar el estado del día.');
+    } finally {
+      setIsBlocking(false);
     }
   };
 
@@ -136,12 +180,26 @@ export default function CalendarView({ appointments, onEdit, onNew, onShare, onD
         <div style={calendarGridStyle}>
           {calendarDays.map((day, idx) => {
             const dateStr = format(day, 'yyyy-MM-dd');
-            const dayAppts = appointmentsByDate[dateStr] || [];
+            const dayAppts = normalAppointmentsByDate[dateStr] || [];
+            const isBlocked = blockedDates.has(dateStr);
             const isSelected = selectedDate && isSameDay(day, selectedDate);
             const isCurrentMonth = isSameDay(startOfMonth(day), monthStart);
             const hasAppts = dayAppts.length > 0;
             const allAttended = hasAppts && dayAppts.every(a => a.status === 'arrived');
             const dayIsToday = isToday(day);
+
+            let bgColor = 'transparent';
+            let textColor = 'var(--ink)';
+            
+            if (isBlocked) {
+              bgColor = isSelected ? '#cc0000' : '#fee2e2';
+              textColor = isSelected ? 'white' : '#991b1b';
+            } else if (isSelected) {
+              bgColor = 'var(--sage-deep)';
+              textColor = 'white';
+            } else if (dayIsToday) {
+              bgColor = 'var(--sage-light)';
+            }
 
             return (
               <button
@@ -150,14 +208,14 @@ export default function CalendarView({ appointments, onEdit, onNew, onShare, onD
                 style={{
                   ...dayCellStyle,
                   opacity: isCurrentMonth ? 1 : 0.3,
-                  backgroundColor: isSelected ? 'var(--sage-deep)' : (dayIsToday ? 'var(--sage-light)' : 'transparent'),
-                  color: isSelected ? 'white' : 'var(--ink)',
-                  border: dayIsToday && !isSelected ? '1px solid var(--sage-dark)' : 'none',
+                  backgroundColor: bgColor,
+                  color: textColor,
+                  border: dayIsToday && !isSelected ? '1px solid var(--sage-dark)' : (isBlocked && !isSelected ? '1px solid #f87171' : 'none'),
                 }}
               >
                 <span style={{ 
                   fontSize: isMobile ? 12 : 14, 
-                  fontWeight: dayIsToday || isSelected ? 700 : 400,
+                  fontWeight: dayIsToday || isSelected || isBlocked ? 700 : 400,
                 }}>
                   {format(day, 'd')}
                 </span>
@@ -172,6 +230,14 @@ export default function CalendarView({ appointments, onEdit, onNew, onShare, onD
             );
           })}
         </div>
+
+        {/* Leyenda */}
+        <div style={legendStyle}>
+          <div style={legendItemStyle}>
+            <div style={{ ...legendDotStyle, backgroundColor: '#fee2e2', border: '1px solid #f87171' }} />
+            <span>Día no laborable (Dra. no trabaja)</span>
+          </div>
+        </div>
       </div>
 
       {/* Detalle del día seleccionado */}
@@ -183,26 +249,59 @@ export default function CalendarView({ appointments, onEdit, onNew, onShare, onD
             </h3>
             <span style={detailsBadgeStyle}>
               {selectedDayAppointments.length} turno{selectedDayAppointments.length !== 1 ? 's' : ''}
+              {isSelectedDateBlocked && ' · DÍA BLOQUEADO'}
             </span>
           </div>
-          <button 
-            onClick={() => selectedDate && onNew(selectedDate)}
-            style={btnNewDayStyle}
-          >
-            <Plus size={14} /> {isMobile ? '' : 'Nuevo'}
-          </button>
+          <div style={{ display: 'flex', gap: '8px' }}>
+            <button
+              onClick={toggleBlockDay}
+              disabled={isBlocking}
+              style={{
+                ...btnBlockStyle,
+                backgroundColor: isSelectedDateBlocked ? 'var(--cream)' : '#fee2e2',
+                color: isSelectedDateBlocked ? 'var(--muted)' : '#991b1b',
+                borderColor: isSelectedDateBlocked ? 'var(--cfg-border)' : '#f87171',
+              }}
+              title={isSelectedDateBlocked ? 'Habilitar día' : 'Bloquear día (No laborable)'}
+            >
+              {isSelectedDateBlocked ? <Check size={14} /> : <Ban size={14} />}
+              {isMobile ? '' : (isSelectedDateBlocked ? 'Habilitar' : 'Bloquear')}
+            </button>
+            <button 
+              onClick={() => selectedDate && onNew(selectedDate)}
+              style={{
+                ...btnNewDayStyle,
+                opacity: isSelectedDateBlocked ? 0.5 : 1,
+              }}
+              disabled={isSelectedDateBlocked}
+            >
+              <Plus size={14} /> {isMobile ? '' : 'Nuevo'}
+            </button>
+          </div>
         </div>
+
+        {isSelectedDateBlocked && (
+          <div style={blockedAlertStyle}>
+            <UserX size={20} />
+            <div style={{ textAlign: 'left' }}>
+              <strong>Día no laborable</strong>
+              <p style={{ fontSize: '0.75rem', margin: 0 }}>La doctora no atiende este día. Si necesitas agendar igual, primero habilita el día.</p>
+            </div>
+          </div>
+        )}
 
         {selectedDayAppointments.length === 0 ? (
           <div style={emptyStateStyle}>
             <div style={emptyIconStyle}><CalendarIcon size={24} /></div>
             <p>No hay turnos para este día.</p>
-            <button 
-              onClick={() => selectedDate && onNew(selectedDate)}
-              style={btnEmptyAddStyle}
-            >
-              Agendar turno
-            </button>
+            {!isSelectedDateBlocked && (
+              <button 
+                onClick={() => selectedDate && onNew(selectedDate)}
+                style={btnEmptyAddStyle}
+              >
+                Agendar turno
+              </button>
+            )}
           </div>
         ) : (
           <div style={apptListStyle}>
@@ -211,6 +310,10 @@ export default function CalendarView({ appointments, onEdit, onNew, onShare, onD
               .map((appt) => {
                 const isArrived = appt.status === 'arrived';
                 const isSaving = savingArrivalId === appt.id;
+
+                const duration = getDurationFromNotes(appt.notes);
+                const endMinutes = timeToMinutes(appt.time) + duration;
+                const endTime = minutesToTime(endMinutes);
                 
                 return (
                   <div key={appt.id} style={{
@@ -222,11 +325,15 @@ export default function CalendarView({ appointments, onEdit, onNew, onShare, onD
                     gap: isMobile ? '0.5rem' : '1rem',
                   }}>
                     <div style={{ display: 'flex', width: '100%', alignItems: 'center', gap: '1rem' }}>
-                      <div style={apptTimeStyle}>{appt.time}</div>
+                      <div style={{ ...apptTimeStyle, display: 'flex', flexDirection: 'column', alignItems: 'center', minWidth: '55px' }}>
+                        <span>{appt.time}</span>
+                        <span style={{ fontSize: '0.65rem', color: 'var(--muted)', fontWeight: 400 }}>{endTime}</span>
+                      </div>
                       <div style={apptInfoStyle}>
                         <div style={patientNameStyle}>{appt.patient?.name || 'Sin nombre'}</div>
                         <div style={metaRowStyle}>
                           <span style={apptReasonStyle}>{appt.reason || 'Consulta'}</span>
+                          <span style={{ fontSize: '0.65rem', color: 'var(--muted)', background: 'white', padding: '1px 4px', borderRadius: '4px', border: '1px solid var(--cfg-border)' }}>{duration} min</span>
                           {appt.patient?.os && <span style={osBadgeStyle}>{appt.patient.os}</span>}
                         </div>
                       </div>
@@ -402,6 +509,29 @@ const dotStyle: React.CSSProperties = {
   marginTop: 2,
 };
 
+const legendStyle: React.CSSProperties = {
+  marginTop: '1.25rem',
+  paddingTop: '0.75rem',
+  borderTop: '1px solid var(--cfg-border)',
+  display: 'flex',
+  flexWrap: 'wrap',
+  gap: '1rem',
+};
+
+const legendItemStyle: React.CSSProperties = {
+  display: 'flex',
+  alignItems: 'center',
+  gap: '6px',
+  fontSize: '0.75rem',
+  color: 'var(--muted)',
+};
+
+const legendDotStyle: React.CSSProperties = {
+  width: 12,
+  height: 12,
+  borderRadius: 4,
+};
+
 const detailsCardStyle: React.CSSProperties = {
   background: 'white',
   borderRadius: 24,
@@ -452,6 +582,33 @@ const btnNewDayStyle: React.CSSProperties = {
   fontWeight: 500,
   cursor: 'pointer',
   minWidth: '36px',
+};
+
+const btnBlockStyle: React.CSSProperties = {
+  display: 'flex',
+  alignItems: 'center',
+  justifyContent: 'center',
+  gap: '4px',
+  padding: '8px 12px',
+  borderRadius: '10px',
+  border: '1px solid transparent',
+  fontSize: '0.8rem',
+  fontWeight: 500,
+  cursor: 'pointer',
+  minWidth: '36px',
+  transition: 'all 0.2s ease',
+};
+
+const blockedAlertStyle: React.CSSProperties = {
+  display: 'flex',
+  alignItems: 'center',
+  gap: '12px',
+  padding: '12px 16px',
+  borderRadius: '12px',
+  backgroundColor: '#fee2e2',
+  color: '#991b1b',
+  marginBottom: '1rem',
+  border: '1px solid #f87171',
 };
 
 const emptyStateStyle: React.CSSProperties = {
@@ -571,3 +728,4 @@ const iconBtnStyle: React.CSSProperties = {
   cursor: 'pointer',
   transition: 'all 0.2s ease',
 };
+

@@ -75,7 +75,10 @@ export default function PatientProfileModal({ isOpen, onClose, patient, onSaved 
   }, [appointments, payments]);
 
   const addPayment = async () => {
-    if (!paymentForm.amount || !paymentForm.description) return;
+    if (!paymentForm.amount || !paymentForm.description) {
+      alert('Por favor complete el monto y la descripción');
+      return;
+    }
     setLoading(true);
     const { error } = await supabase.from('payments').insert([{
       patient_id: patient.id,
@@ -85,7 +88,7 @@ export default function PatientProfileModal({ isOpen, onClose, patient, onSaved 
     }]);
 
     if (error) {
-      alert('Error: ' + error.message);
+      alert('Error al registrar pago: ' + error.message);
       setLoading(false);
     } else {
       setIsAddingPayment(false);
