@@ -1,7 +1,7 @@
 'use client';
 
 import { useDeferredValue, useEffect, useMemo, useState, type CSSProperties } from 'react';
-import { ChevronLeft, ChevronRight, FileText, Pencil, Plus, Search, Trash2, User } from 'lucide-react';
+import { ChevronLeft, ChevronRight, FileText, Pencil, Plus, Search, Trash2, User, Phone, CreditCard, Activity } from 'lucide-react';
 import Tooltip from '../Tooltip';
 import { createClient } from '../../lib/supabase';
 import { Patient } from '../../types';
@@ -28,6 +28,7 @@ export default function PatientsView() {
   const [currentPage, setCurrentPage] = useState(1);
   const [modalOpen, setModalOpen] = useState(false);
   const [editingPatient, setEditingPatient] = useState<Patient | null>(null);
+  const [isMobile, setIsMobile] = useState(false);
   
   const [profileModalOpen, setProfileModalOpen] = useState(false);
   const [selectedPatientForProfile, setSelectedPatientForProfile] = useState<Patient | null>(null);
@@ -36,6 +37,13 @@ export default function PatientsView() {
   const [selectedPatientForHistory, setSelectedPatientForHistory] = useState<Patient | null>(null);
 
   const deferredSearch = useDeferredValue(search);
+
+  useEffect(() => {
+    const checkMobile = () => setIsMobile(window.innerWidth < 768);
+    checkMobile();
+    window.addEventListener('resize', checkMobile);
+    return () => window.removeEventListener('resize', checkMobile);
+  }, []);
 
   const loadPatients = async () => {
     setLoading(true);
@@ -100,10 +108,12 @@ export default function PatientsView() {
           <h1 style={titleStyle}>
             Lista de <em style={titleAccentStyle}>pacientes</em>
           </h1>
-          <p style={subtitleStyle}>
-            {filtered.length} paciente{filtered.length !== 1 ? 's' : ''} registrado
-            {filtered.length !== 1 ? 's' : ''}
-          </p>
+          {!isMobile && (
+            <p style={subtitleStyle}>
+              {filtered.length} paciente{filtered.length !== 1 ? 's' : ''} registrado
+              {filtered.length !== 1 ? 's' : ''}
+            </p>
+          )}
         </div>
 
         <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
@@ -116,7 +126,7 @@ export default function PatientsView() {
             style={btnNew}
           >
             <Plus size={14} />
-            Nuevo paciente
+            {isMobile ? 'Nuevo' : 'Nuevo paciente'}
           </button>
         </div>
       </div>
@@ -129,14 +139,14 @@ export default function PatientsView() {
         />
         <input
           type="text"
-          placeholder="Buscar por nombre, DNI, teléfono u obra social..."
+          placeholder={isMobile ? "Buscar..." : "Buscar por nombre, DNI, teléfono u obra social..."}
           value={search}
           onChange={(event) => setSearch(event.target.value)}
           style={searchInput}
         />
       </div>
 
-      <div style={tableCardStyle}>
+      <div style={isMobile ? mobileContainerStyle : tableCardStyle}>
         {loading ? (
           <div style={emptyWrapStyle}>
             <p style={emptyTextStyle}>Cargando pacientes...</p>
@@ -150,6 +160,48 @@ export default function PatientsView() {
             <p style={{ fontSize: 13, color: 'var(--muted)', marginTop: 4, fontWeight: 300 }}>
               Probá con otro término de búsqueda
             </p>
+          </div>
+        ) : isMobile ? (
+          <div style={cardGridStyle}>
+            {paginatedPatients.map((patient) => (
+              <div key={patient.id} style={patientCardStyle}>
+                <div style={cardHeaderStyle}>
+                  <div style={avatarStyle}>{getInitials(patient.name)}</div>
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <h3 style={cardPatientName}>{patient.name}</h3>
+                    <div style={cardBadgesRow}>
+                      {patient.os && <span style={osPill}>{patient.os}</span>}
+                    </div>
+                  </div>
+                </div>
+                
+                <div style={cardContentStyle}>
+                  <div style={cardInfoRow}>
+                    <CreditCard size={12} color="var(--muted)" />
+                    <span>DNI: {patient.dni || '—'}</span>
+                  </div>
+                  <div style={cardInfoRow}>
+                    <Phone size={12} color="var(--muted)" />
+                    <span>Tel: {patient.phone || '—'}</span>
+                  </div>
+                </div>
+
+                <div style={cardActionsStyle}>
+                  <button onClick={() => openProfile(patient)} style={cardActionBtn}>
+                    <User size={14} /> Perfil
+                  </button>
+                  <button onClick={() => openHistory(patient)} style={cardActionBtn}>
+                    <FileText size={14} /> H.C.
+                  </button>
+                  <button onClick={() => { setEditingPatient(patient); setModalOpen(true); }} style={cardActionBtn}>
+                    <Pencil size={14} /> Editar
+                  </button>
+                  <button onClick={() => deletePatient(patient.id)} style={{ ...cardActionBtn, color: 'var(--rose-deep)' }}>
+                    <Trash2 size={14} /> Borrar
+                  </button>
+                </div>
+              </div>
+            ))}
           </div>
         ) : (
           <>
@@ -224,51 +276,51 @@ export default function PatientsView() {
                 </tbody>
               </table>
             </div>
-
-            {totalPages > 1 && (
-              <div style={paginationContainer}>
-                <button
-                  disabled={currentPage === 1}
-                  onClick={() => setCurrentPage((p) => p - 1)}
-                  style={{ ...btnPagination, opacity: currentPage === 1 ? 0.4 : 1 }}
-                >
-                  Anterior
-                </button>
-                
-                <div style={paginationJumpWrapper}>
-                  <span>Página</span>
-                  <input
-                    type="number"
-                    min={1}
-                    max={totalPages}
-                    value={currentPage}
-                    onChange={(e) => {
-                      const val = parseInt(e.target.value);
-                      if (val >= 1 && val <= totalPages) setCurrentPage(val);
-                    }}
-                    style={jumpInputStyle}
-                  />
-                  <span>de {totalPages}</span>
-                </div>
-
-                <button
-                  disabled={currentPage === totalPages}
-                  onClick={() => setCurrentPage((p) => p + 1)}
-                  style={{ ...btnPagination, opacity: currentPage === totalPages ? 0.4 : 1 }}
-                >
-                  Siguiente
-                </button>
-              </div>
-            )}
           </>
+        )}
+
+        {/* Pagination - Simplified for mobile if needed, but keeping existing logic */}
+        {!loading && filtered.length > 0 && totalPages > 1 && (
+          <div style={paginationContainer}>
+            <button
+              disabled={currentPage === 1}
+              onClick={() => setCurrentPage((p) => p - 1)}
+              style={{ ...btnPagination, opacity: currentPage === 1 ? 0.4 : 1 }}
+            >
+              {isMobile ? <ChevronLeft size={16} /> : 'Anterior'}
+            </button>
+            
+            <div style={paginationJumpWrapper}>
+              {!isMobile && <span>Página</span>}
+              <input
+                type="number"
+                min={1}
+                max={totalPages}
+                value={currentPage}
+                onChange={(e) => {
+                  const val = parseInt(e.target.value);
+                  if (val >= 1 && val <= totalPages) setCurrentPage(val);
+                }}
+                style={jumpInputStyle}
+              />
+              <span>de {totalPages}</span>
+            </div>
+
+            <button
+              disabled={currentPage === totalPages}
+              onClick={() => setCurrentPage((p) => p + 1)}
+              style={{ ...btnPagination, opacity: currentPage === totalPages ? 0.4 : 1 }}
+            >
+              {isMobile ? <ChevronRight size={16} /> : 'Siguiente'}
+            </button>
+          </div>
         )}
       </div>
 
       <div style={footerStyle}>
         <div style={footerDotStyle} />
         <span style={footerTextStyle}>
-          <strong style={{ fontWeight: 400, color: 'var(--muted)' }}>Consultorio Dental</strong> · Dra. Nazarena ·
-          Datos en Supabase
+          <strong style={{ fontWeight: 400, color: 'var(--muted)' }}>Consultorio Dental</strong> · Dra. Nazarena
         </span>
         <div style={footerDotStyle} />
       </div>
@@ -310,27 +362,27 @@ export default function PatientsView() {
 const pageStyle: CSSProperties = {
   maxWidth: 1200,
   margin: '0 auto',
-  padding: '2.25rem 1.25rem 4rem',
+  padding: '1.5rem 1rem 4rem',
   fontFamily: 'var(--font-dm-sans), sans-serif',
 };
 
 const headerStyle: CSSProperties = {
   display: 'flex',
-  alignItems: 'flex-end',
+  alignItems: 'center',
   justifyContent: 'space-between',
   gap: 16,
   flexWrap: 'wrap',
-  marginBottom: '2rem',
-  paddingBottom: '1.5rem',
+  marginBottom: '1.5rem',
+  paddingBottom: '1rem',
   borderBottom: '1px solid var(--cfg-border)',
 };
 
 const titleStyle: CSSProperties = {
   fontFamily: 'var(--font-dm-serif), serif',
-  fontSize: 30,
+  fontSize: 26,
   color: 'var(--ink)',
   letterSpacing: '-0.5px',
-  lineHeight: 1,
+  lineHeight: 1.2,
 };
 
 const titleAccentStyle: CSSProperties = {
@@ -359,6 +411,87 @@ const tableCardStyle: CSSProperties = {
   border: '1px solid var(--cfg-border)',
   borderRadius: 20,
   overflow: 'hidden',
+};
+
+const mobileContainerStyle: CSSProperties = {
+  marginTop: '0.5rem',
+};
+
+const cardGridStyle: CSSProperties = {
+  display: 'flex',
+  flexDirection: 'column',
+  gap: '1rem',
+};
+
+const patientCardStyle: CSSProperties = {
+  background: 'white',
+  borderRadius: 20,
+  border: '1px solid var(--cfg-border)',
+  padding: '1rem',
+  display: 'flex',
+  flexDirection: 'column',
+  gap: '0.75rem',
+  boxShadow: '0 2px 8px rgba(0,0,0,0.02)',
+};
+
+const cardHeaderStyle: CSSProperties = {
+  display: 'flex',
+  alignItems: 'center',
+  gap: '12px',
+};
+
+const cardPatientName: CSSProperties = {
+  fontSize: '1rem',
+  fontWeight: 600,
+  color: 'var(--ink)',
+  margin: 0,
+  overflow: 'hidden',
+  textOverflow: 'ellipsis',
+  whiteSpace: 'nowrap',
+};
+
+const cardBadgesRow: CSSProperties = {
+  display: 'flex',
+  gap: '6px',
+  marginTop: '4px',
+};
+
+const cardContentStyle: CSSProperties = {
+  display: 'flex',
+  flexDirection: 'column',
+  gap: '6px',
+  padding: '0.5rem 0',
+  borderTop: '1px solid #f8f8f8',
+  borderBottom: '1px solid #f8f8f8',
+};
+
+const cardInfoRow: CSSProperties = {
+  display: 'flex',
+  alignItems: 'center',
+  gap: '8px',
+  fontSize: '0.8rem',
+  color: 'var(--muted)',
+};
+
+const cardActionsStyle: CSSProperties = {
+  display: 'grid',
+  gridTemplateColumns: '1fr 1fr',
+  gap: '8px',
+};
+
+const cardActionBtn: CSSProperties = {
+  display: 'flex',
+  alignItems: 'center',
+  justifyContent: 'center',
+  gap: '6px',
+  padding: '10px',
+  borderRadius: '10px',
+  border: '1px solid var(--cfg-border)',
+  background: 'white',
+  fontSize: '0.75rem',
+  fontWeight: 500,
+  color: 'var(--ink)',
+  cursor: 'pointer',
 };
 
 const tableStyle: CSSProperties = {
@@ -526,7 +659,7 @@ const paginationContainer: CSSProperties = {
   display: 'flex',
   alignItems: 'center',
   justifyContent: 'center',
-  gap: 20,
+  gap: 15,
   padding: '1.25rem',
   borderTop: '1px solid var(--cfg-border)',
   background: '#fafafa',
@@ -543,6 +676,9 @@ const btnPagination: CSSProperties = {
   cursor: 'pointer',
   transition: 'all 0.2s ease',
   outline: 'none',
+  display: 'flex',
+  alignItems: 'center',
+  justifyContent: 'center',
 };
 
 const paginationJumpWrapper: CSSProperties = {
@@ -555,7 +691,7 @@ const paginationJumpWrapper: CSSProperties = {
 };
 
 const jumpInputStyle: CSSProperties = {
-  width: 50,
+  width: 44,
   padding: '4px 6px',
   borderRadius: 6,
   border: '1px solid var(--cfg-border)',
