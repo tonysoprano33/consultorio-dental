@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react';
 import { createClient } from '../../lib/supabase';
 import { getTodayDateString } from '../../lib/date-utils';
 import { Appointment } from '../../types';
-import { X, Save, Search, AlertTriangle } from 'lucide-react';
+import { X, Save, Search, AlertTriangle, Trash2, Info } from 'lucide-react';
 import { 
   getDurationFromNotes, 
   setDurationInNotes, 
@@ -12,7 +12,8 @@ import {
   minutesToTime,
   timeToMinutes,
   loadTreatmentDurations,
-  saveTreatmentDuration
+  saveTreatmentDuration,
+  deleteTreatment
 } from '../../lib/appointment-utils';
 
 const supabase = createClient();
@@ -119,16 +120,30 @@ export default function AppointmentModal({ isOpen, onClose, editAppt, onSaved, i
     setShowReasonSuggestions(false);
   };
 
-  const handleSaveTreatment = async () => {
+  const handleSaveTreatment = async (e: React.MouseEvent) => {
+    e.stopPropagation();
     if (!form.reason) return;
     setLoading(true);
     try {
       await saveTreatmentDuration(form.reason, form.duration);
-      const updated = await loadTreatmentDurations();
-      setTreatments(updated);
-      alert('Tratamiento guardado como opción permanente.');
+      await loadTreatments();
+      alert(`Tratamiento "${form.reason}" guardado.`);
     } catch (e) {
       alert('No se pudo guardar el tratamiento.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleDeleteTreatment = async (e: React.MouseEvent, name: string) => {
+    e.stopPropagation();
+    if (!confirm(`¿Eliminar "${name}" de la lista permanente?`)) return;
+    setLoading(true);
+    try {
+      await deleteTreatment(name);
+      await loadTreatments();
+    } catch (e) {
+      alert('No se pudo eliminar el tratamiento.');
     } finally {
       setLoading(false);
     }
@@ -268,18 +283,26 @@ export default function AppointmentModal({ isOpen, onClose, editAppt, onSaved, i
                   onBlur={() => setTimeout(() => setShowReasonSuggestions(false), 200)}
                   style={{ ...inp, flex: 1 }} 
                 />
-                {form.reason && !treatments[form.reason] && (
-                  <button onClick={handleSaveTreatment} style={saveTreatmentBtn}>Guardar</button>
+                {form.reason && (
+                  <button onClick={handleSaveTreatment} style={{ ...saveTreatmentBtn, opacity: treatments[form.reason] ? 0.6 : 1 }} title={treatments[form.reason] ? 'Actualizar duración' : 'Guardar en la lista'}>
+                    {treatments[form.reason] ? 'Actualizar' : 'Guardar'}
+                  </button>
                 )}
+              </div>
+              <div style={legendSmall}>
+                <Info size={10} /> Para agregar a la lista: escribe el nombre, pon el tiempo y pulsa "Guardar".
               </div>
               {showReasonSuggestions && (
                 <div style={dropdownStyle}>
                   {Object.keys(treatments).map(reason => (
-                    <div key={reason} onClick={() => selectReason(reason)} style={dropdownItem}>
-                      <div style={{ display: 'flex', justifyContent: 'space-between', width: '100%' }}>
+                    <div key={reason} onClick={() => selectReason(reason)} style={dropdownItemWithDelete}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', flex: 1 }}>
                         <span>{reason}</span>
                         <span style={{ fontSize: 10, color: 'var(--muted)' }}>{treatments[reason]} min</span>
                       </div>
+                      <button onClick={(e) => handleDeleteTreatment(e, reason)} style={deleteIconBtn} title="Eliminar de la lista">
+                        <Trash2 size={12} />
+                      </button>
                     </div>
                   ))}
                 </div>
@@ -340,8 +363,11 @@ const searchIcon: React.CSSProperties = { position: 'absolute', left: 12, top: '
 const inp: React.CSSProperties = { width: '100%', background: 'var(--cream)', border: '1.5px solid var(--cfg-border)', borderRadius: 10, padding: '11px 13px', fontSize: 13.5, color: 'var(--ink)', fontFamily: 'var(--font-dm-sans), sans-serif', fontWeight: 300, outline: 'none' };
 const dropdownStyle: React.CSSProperties = { position: 'absolute', top: '100%', left: 0, right: 0, backgroundColor: 'white', border: '1px solid var(--cfg-border)', borderRadius: 12, marginTop: 4, boxShadow: '0 4px 20px rgba(0,0,0,0.1)', zIndex: 2000, maxHeight: 200, overflowY: 'auto' };
 const dropdownItem: React.CSSProperties = { padding: '10px 14px', cursor: 'pointer', borderBottom: '1px solid var(--cfg-border)', fontSize: 13 };
+const dropdownItemWithDelete: React.CSSProperties = { ...dropdownItem, display: 'flex', alignItems: 'center', gap: 10 };
+const deleteIconBtn: React.CSSProperties = { border: 'none', background: 'transparent', color: 'var(--rose-deep)', cursor: 'pointer', padding: 4, display: 'flex', alignItems: 'center', opacity: 0.6 };
 const pillBtn: React.CSSProperties = { border: '1px solid var(--cfg-border)', borderRadius: 8, padding: '4px 8px', fontSize: 11, cursor: 'pointer', transition: 'all 0.2s' };
-const saveTreatmentBtn: React.CSSProperties = { padding: '0 12px', borderRadius: 10, border: '1px solid var(--sage-dark)', background: 'var(--sage-light)', color: 'var(--sage-deep)', fontSize: 12, cursor: 'pointer' };
+const saveTreatmentBtn: React.CSSProperties = { padding: '0 12px', borderRadius: 10, border: '1.5px solid var(--sage-dark)', background: 'var(--sage-light)', color: 'var(--sage-deep)', fontSize: 12, cursor: 'pointer' };
+const legendSmall: React.CSSProperties = { fontSize: 10, color: 'var(--muted)', marginTop: 4, display: 'flex', alignItems: 'center', gap: 4 };
 const modalFooter: React.CSSProperties = { display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: 10, padding: '1rem 1.75rem', borderTop: '1px solid var(--cfg-border)', background: 'var(--cream)' };
 const btnCancel: React.CSSProperties = { border: '1.5px solid var(--cfg-border)', background: 'white', color: 'var(--muted)', borderRadius: 10, padding: '10px 18px', fontSize: 13, cursor: 'pointer' };
 const btnSave: React.CSSProperties = { display: 'inline-flex', alignItems: 'center', gap: 8, border: 'none', background: 'var(--ink)', color: 'white', borderRadius: 10, padding: '10px 22px', fontSize: 13.5, cursor: 'pointer' };

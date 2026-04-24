@@ -46,6 +46,23 @@ export async function saveTreatmentDuration(name: string, duration: number): Pro
   }
 }
 
+export async function deleteTreatment(name: string): Promise<void> {
+  const updated = { ...TREATMENT_DURATIONS };
+  delete updated[name];
+  try {
+    const { error } = await supabase
+      .from('patients')
+      .update({ clinical_history: updated })
+      .eq('name', CONFIG_RECORD_NAME);
+    
+    if (error) throw error;
+    TREATMENT_DURATIONS = updated;
+  } catch (e) {
+    console.error('Error deleting treatment:', e);
+    throw e;
+  }
+}
+
 export function getDurationFromNotes(notes: string | undefined | null): number {
   if (!notes) return 15; // Default if not found
   const match = notes.match(/\[DURATION:(\d+)\]/);
