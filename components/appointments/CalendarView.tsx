@@ -180,7 +180,13 @@ export default function CalendarView({ appointments, onEdit, onNew, onShare, onD
 
   const openWhatsApp = (phone: string, name: string, date: string, time: string) => {
     const formattedDate = format(new Date(date + 'T12:00:00'), "EEEE d 'de' MMMM", { locale: es });
-    const message = `Hola ${name}, te recordamos tu turno en el Consultorio Dental para el día ${formattedDate} a las ${time}. ¡Te esperamos!`;
+    const message = `Hola ${name}, te recordamos tu turno con la Dra. Nazarena Piguillem para el día ${formattedDate} a las ${time}.
+
+📍 Centro Respiratorio - Marconi 147
+
+Cualquier duda, consultar en mesa de entrada.
+
+¡Te esperamos!`;
     const cleanPhone = phone.replace(/\D/g, '');
     const url = `https://wa.me/${cleanPhone}?text=${encodeURIComponent(message)}`;
     window.open(url, '_blank');
