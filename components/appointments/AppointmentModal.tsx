@@ -18,6 +18,7 @@ import {
 
 const supabase = createClient();
 const SYSTEM_BLOCK_PATIENT_ID = 'b3614d2b-fa80-4c38-80b2-1458c78e4273';
+const SYSTEM_FULL_PATIENT_ID = 'c4725e3c-ab91-4d49-91c3-2569d89f5384';
 
 interface Props {
   isOpen: boolean;
@@ -43,6 +44,7 @@ export default function AppointmentModal({ isOpen, onClose, editAppt, onSaved, i
   const [showSuggestions, setShowSuggestions] = useState(false);
   const [showReasonSuggestions, setShowReasonSuggestions] = useState(false);
   const [isBlockedDay, setIsBlockedDay] = useState(false);
+  const [isFullDay, setIsFullDay] = useState(false);
 
   useEffect(() => {
     if (!isOpen) return;
@@ -83,13 +85,21 @@ export default function AppointmentModal({ isOpen, onClose, editAppt, onSaved, i
   }, [form.date]);
 
   const checkIfBlocked = async (date: string) => {
-    const { data } = await supabase
+    const { data: blockData } = await supabase
       .from('appointments')
       .select('id')
       .eq('date', date)
       .eq('patient_id', SYSTEM_BLOCK_PATIENT_ID)
       .maybeSingle();
-    setIsBlockedDay(!!data);
+    setIsBlockedDay(!!blockData);
+    
+    const { data: fullData } = await supabase
+      .from('appointments')
+      .select('id')
+      .eq('date', date)
+      .eq('patient_id', SYSTEM_FULL_PATIENT_ID)
+      .maybeSingle();
+    setIsFullDay(!!fullData);
   };
 
   const loadPatients = async () => {
@@ -104,7 +114,7 @@ export default function AppointmentModal({ isOpen, onClose, editAppt, onSaved, i
 
   const filteredPatients = patients.filter(p => {
     const search = searchTerm.toLowerCase();
-    if (p.id === SYSTEM_BLOCK_PATIENT_ID) return false;
+    if (p.id === SYSTEM_BLOCK_PATIENT_ID || p.id === SYSTEM_FULL_PATIENT_ID) return false;
     return p.name.toLowerCase().includes(search) || (p.os && p.os.toLowerCase().includes(search));
   });
 
@@ -157,6 +167,12 @@ export default function AppointmentModal({ isOpen, onClose, editAppt, onSaved, i
 
     if (isBlockedDay) {
       if (!confirm('Este día está marcado como NO LABORABLE. ¿Estás segura de agendar un turno igual?')) {
+        return;
+      }
+    }
+
+    if (isFullDay) {
+      if (!confirm('Este día está marcado como AGENDA COMPLETA. ¿Estás segura de agregar otro turno igual?')) {
         return;
       }
     }
@@ -226,6 +242,14 @@ export default function AppointmentModal({ isOpen, onClose, editAppt, onSaved, i
           <div style={blockedWarning}>
             <AlertTriangle size={16} />
             <span><strong>Día no laborable:</strong> La doctora no trabaja este día.</span>
+          </div>
+        )}
+
+        {/* Warning if FULL day */}
+        {isFullDay && (
+          <div style={fullWarning}>
+            <AlertTriangle size={16} />
+            <span><strong>Agenda completa:</strong> Este día está marcado como sin disponibilidad.</span>
           </div>
         )}
 
@@ -358,6 +382,7 @@ const modalTitle: React.CSSProperties = { fontFamily: 'var(--font-dm-serif), ser
 const modalSubtitle: React.CSSProperties = { fontSize: 12, color: 'var(--muted)', marginTop: 2, fontWeight: 300 };
 const closeBtn: React.CSSProperties = { width: 32, height: 32, borderRadius: 8, border: '1.5px solid var(--cfg-border)', background: 'white', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' };
 const blockedWarning: React.CSSProperties = { backgroundColor: '#fee2e2', color: '#991b1b', padding: '10px 1.75rem', fontSize: 13, display: 'flex', alignItems: 'center', gap: 10, borderBottom: '1px solid #f87171' };
+const fullWarning: React.CSSProperties = { backgroundColor: '#ffedd5', color: '#c2410c', padding: '10px 1.75rem', fontSize: 13, display: 'flex', alignItems: 'center', gap: 10, borderBottom: '1px solid #fb923c' };
 const modalBody: React.CSSProperties = { padding: '1.5rem 1.75rem', display: 'flex', flexDirection: 'column', gap: '1rem', maxHeight: '70vh', overflowY: 'auto' };
 const searchIcon: React.CSSProperties = { position: 'absolute', left: 12, top: '50%', transform: 'translateY(-50%)', color: 'var(--muted)', zIndex: 1 };
 const inp: React.CSSProperties = { width: '100%', background: 'var(--cream)', border: '1.5px solid var(--cfg-border)', borderRadius: 10, padding: '11px 13px', fontSize: 13.5, color: 'var(--ink)', fontFamily: 'var(--font-dm-sans), sans-serif', fontWeight: 300, outline: 'none' };

@@ -22,6 +22,7 @@ import { getDurationFromNotes, minutesToTime, timeToMinutes } from '../../lib/ap
 
 const supabase = createClient();
 const SYSTEM_BLOCK_PATIENT_ID = 'b3614d2b-fa80-4c38-80b2-1458c78e4273';
+const SYSTEM_FULL_PATIENT_ID = 'c4725e3c-ab91-4d49-91c3-2569d89f5384';
 
 interface CalendarViewProps {
   appointments: Appointment[];
@@ -38,6 +39,7 @@ export default function CalendarView({ appointments, onEdit, onNew, onShare, onD
   const [savingArrivalId, setSavingArrivalId] = useState<string | null>(null);
   const [isMobile, setIsMobile] = useState(false);
   const [isBlocking, setIsBlocking] = useState(false);
+  const [isFulling, setIsFulling] = useState(false);
 
   useEffect(() => {
     const checkMobile = () => setIsMobile(window.innerWidth < 768);
@@ -56,19 +58,22 @@ export default function CalendarView({ appointments, onEdit, onNew, onShare, onD
     end: endDate,
   });
 
-  const { normalAppointmentsByDate, blockedDates } = useMemo(() => {
+  const { normalAppointmentsByDate, blockedDates, fullDates } = useMemo(() => {
     const normalMap: Record<string, Appointment[]> = {};
     const blockedSet = new Set<string>();
+    const fullSet = new Set<string>();
     
     appointments.forEach((appt) => {
       if (appt.patient_id === SYSTEM_BLOCK_PATIENT_ID) {
         blockedSet.add(appt.date);
+      } else if (appt.patient_id === SYSTEM_FULL_PATIENT_ID) {
+        fullSet.add(appt.date);
       } else {
         if (!normalMap[appt.date]) normalMap[appt.date] = [];
         normalMap[appt.date].push(appt);
       }
     });
-    return { normalAppointmentsByDate: normalMap, blockedDates: blockedSet };
+    return { normalAppointmentsByDate: normalMap, blockedDates: blockedSet, fullDates: fullSet };
   }, [appointments]);
 
   const nextMonth = () => setCurrentMonth(addMonths(currentMonth, 1));
@@ -82,6 +87,7 @@ export default function CalendarView({ appointments, onEdit, onNew, onShare, onD
   const selectedDateStr = selectedDate ? format(selectedDate, 'yyyy-MM-dd') : '';
   const selectedDayAppointments = normalAppointmentsByDate[selectedDateStr] || [];
   const isSelectedDateBlocked = blockedDates.has(selectedDateStr);
+  const isSelectedDateFull = fullDates.has(selectedDateStr);
 
   const toggleArrived = async (id: string) => {
     setSavingArrivalId(id);
@@ -138,6 +144,40 @@ export default function CalendarView({ appointments, onEdit, onNew, onShare, onD
     }
   };
 
+  const toggleFullDay = async () => {
+    if (!selectedDate) return;
+    setIsFulling(true);
+    try {
+      if (isSelectedDateFull) {
+        // Unmark FULL: delete the system appointment
+        const { error } = await supabase
+          .from('appointments')
+          .delete()
+          .eq('date', selectedDateStr)
+          .eq('patient_id', SYSTEM_FULL_PATIENT_ID);
+        if (error) throw error;
+      } else {
+        // Mark FULL: create a system appointment
+        const { error } = await supabase
+          .from('appointments')
+          .insert([{
+            date: selectedDateStr,
+            time: '00:00',
+            patient_id: SYSTEM_FULL_PATIENT_ID,
+            reason: 'AGENDA COMPLETA - NO MÁS TURNOS',
+            status: 'pending'
+          }]);
+        if (error) throw error;
+      }
+      onRefresh();
+    } catch (error) {
+      console.error('Error toggling full:', error);
+      alert('No se pudo cambiar el estado del día.');
+    } finally {
+      setIsFulling(false);
+    }
+  };
+
   const openWhatsApp = (phone: string, name: string, date: string, time: string) => {
     const formattedDate = format(new Date(date + 'T12:00:00'), "EEEE d 'de' MMMM", { locale: es });
     const message = `Hola ${name}, te recordamos tu turno en el Consultorio Dental para el día ${formattedDate} a las ${time}. ¡Te esperamos!`;
@@ -182,6 +222,7 @@ export default function CalendarView({ appointments, onEdit, onNew, onShare, onD
             const dateStr = format(day, 'yyyy-MM-dd');
             const dayAppts = normalAppointmentsByDate[dateStr] || [];
             const isBlocked = blockedDates.has(dateStr);
+            const isFull = fullDates.has(dateStr);
             const isSelected = selectedDate && isSameDay(day, selectedDate);
             const isCurrentMonth = isSameDay(startOfMonth(day), monthStart);
             const hasAppts = dayAppts.length > 0;
@@ -190,15 +231,23 @@ export default function CalendarView({ appointments, onEdit, onNew, onShare, onD
 
             let bgColor = 'transparent';
             let textColor = 'var(--ink)';
+            let borderStyle = 'none';
             
             if (isBlocked) {
               bgColor = isSelected ? '#cc0000' : '#fee2e2';
               textColor = isSelected ? 'white' : '#991b1b';
+              borderStyle = isSelected ? 'none' : '1px solid #f87171';
+            } else if (isFull) {
+              // FULL day - orange color
+              bgColor = isSelected ? '#ea580c' : '#ffedd5';
+              textColor = isSelected ? 'white' : '#c2410c';
+              borderStyle = isSelected ? 'none' : '1px solid #fb923c';
             } else if (isSelected) {
               bgColor = 'var(--sage-deep)';
               textColor = 'white';
             } else if (dayIsToday) {
               bgColor = 'var(--sage-light)';
+              borderStyle = '1px solid var(--sage-dark)';
             }
 
             return (
@@ -210,12 +259,12 @@ export default function CalendarView({ appointments, onEdit, onNew, onShare, onD
                   opacity: isCurrentMonth ? 1 : 0.3,
                   backgroundColor: bgColor,
                   color: textColor,
-                  border: dayIsToday && !isSelected ? '1px solid var(--sage-dark)' : (isBlocked && !isSelected ? '1px solid #f87171' : 'none'),
+                  border: borderStyle,
                 }}
               >
                 <span style={{ 
                   fontSize: isMobile ? 12 : 14, 
-                  fontWeight: dayIsToday || isSelected || isBlocked ? 700 : 400,
+                  fontWeight: dayIsToday || isSelected || isBlocked || isFull ? 700 : 400,
                 }}>
                   {format(day, 'd')}
                 </span>
@@ -237,6 +286,10 @@ export default function CalendarView({ appointments, onEdit, onNew, onShare, onD
             <div style={{ ...legendDotStyle, backgroundColor: '#fee2e2', border: '1px solid #f87171' }} />
             <span>Día no laborable (Dra. no trabaja)</span>
           </div>
+          <div style={legendItemStyle}>
+            <div style={{ ...legendDotStyle, backgroundColor: '#ffedd5', border: '1px solid #fb923c' }} />
+            <span>Agenda completa (No más turnos)</span>
+          </div>
         </div>
       </div>
 
@@ -250,6 +303,7 @@ export default function CalendarView({ appointments, onEdit, onNew, onShare, onD
             <span style={detailsBadgeStyle}>
               {selectedDayAppointments.length} turno{selectedDayAppointments.length !== 1 ? 's' : ''}
               {isSelectedDateBlocked && ' · DÍA BLOQUEADO'}
+              {isSelectedDateFull && ' · AGENDA COMPLETA'}
             </span>
           </div>
           <div style={{ display: 'flex', gap: '8px' }}>
@@ -267,13 +321,28 @@ export default function CalendarView({ appointments, onEdit, onNew, onShare, onD
               {isSelectedDateBlocked ? <Check size={14} /> : <Ban size={14} />}
               {isMobile ? '' : (isSelectedDateBlocked ? 'Habilitar' : 'Bloquear')}
             </button>
+            <button
+              onClick={toggleFullDay}
+              disabled={isFulling || isSelectedDateBlocked}
+              style={{
+                ...btnFullStyle,
+                backgroundColor: isSelectedDateFull ? 'var(--cream)' : '#ffedd5',
+                color: isSelectedDateFull ? 'var(--muted)' : '#c2410c',
+                borderColor: isSelectedDateFull ? 'var(--cfg-border)' : '#fb923c',
+                opacity: isSelectedDateBlocked ? 0.5 : 1,
+              }}
+              title={isSelectedDateFull ? 'Quitar "Agenda completa"' : 'Marcar día como "Agenda completa"'}
+            >
+              {isSelectedDateFull ? <Check size={14} /> : <Ban size={14} />}
+              {isMobile ? '' : (isSelectedDateFull ? 'Disponible' : 'Completo')}
+            </button>
             <button 
               onClick={() => selectedDate && onNew(selectedDate)}
               style={{
                 ...btnNewDayStyle,
-                opacity: isSelectedDateBlocked ? 0.5 : 1,
+                opacity: (isSelectedDateBlocked || isSelectedDateFull) ? 0.5 : 1,
               }}
-              disabled={isSelectedDateBlocked}
+              disabled={isSelectedDateBlocked || isSelectedDateFull}
             >
               <Plus size={14} /> {isMobile ? '' : 'Nuevo'}
             </button>
@@ -290,11 +359,21 @@ export default function CalendarView({ appointments, onEdit, onNew, onShare, onD
           </div>
         )}
 
+        {isSelectedDateFull && (
+          <div style={fullAlertStyle}>
+            <Check size={20} />
+            <div style={{ textAlign: 'left' }}>
+              <strong>Agenda completa</strong>
+              <p style={{ fontSize: '0.75rem', margin: 0 }}>Este día está marcado como completo. No se deberían agregar más turnos.</p>
+            </div>
+          </div>
+        )}
+
         {selectedDayAppointments.length === 0 ? (
           <div style={emptyStateStyle}>
             <div style={emptyIconStyle}><CalendarIcon size={24} /></div>
             <p>No hay turnos para este día.</p>
-            {!isSelectedDateBlocked && (
+            {!isSelectedDateBlocked && !isSelectedDateFull && (
               <button 
                 onClick={() => selectedDate && onNew(selectedDate)}
                 style={btnEmptyAddStyle}
@@ -390,6 +469,18 @@ export default function CalendarView({ appointments, onEdit, onNew, onShare, onD
                   </div>
                 );
               })}
+            
+            {/* Cat GIF celebration when day is FULL */}
+            {isSelectedDateFull && (
+              <div style={catGifContainerStyle}>
+                <img 
+                  src="https://media.giphy.com/media/JIX9t2j0ZTN9S/giphy.gif" 
+                  alt="Celebrating cat" 
+                  style={catGifStyle}
+                />
+                <span style={catGifTextStyle}>¡Agenda completa! No más turnos por hoy 🎉</span>
+              </div>
+            )}
           </div>
         )}
       </div>
@@ -599,6 +690,21 @@ const btnBlockStyle: React.CSSProperties = {
   transition: 'all 0.2s ease',
 };
 
+const btnFullStyle: React.CSSProperties = {
+  display: 'flex',
+  alignItems: 'center',
+  justifyContent: 'center',
+  gap: '4px',
+  padding: '8px 12px',
+  borderRadius: '10px',
+  border: '1px solid transparent',
+  fontSize: '0.8rem',
+  fontWeight: 500,
+  cursor: 'pointer',
+  minWidth: '36px',
+  transition: 'all 0.2s ease',
+};
+
 const blockedAlertStyle: React.CSSProperties = {
   display: 'flex',
   alignItems: 'center',
@@ -609,6 +715,18 @@ const blockedAlertStyle: React.CSSProperties = {
   color: '#991b1b',
   marginBottom: '1rem',
   border: '1px solid #f87171',
+};
+
+const fullAlertStyle: React.CSSProperties = {
+  display: 'flex',
+  alignItems: 'center',
+  gap: '12px',
+  padding: '12px 16px',
+  borderRadius: '12px',
+  backgroundColor: '#ffedd5',
+  color: '#c2410c',
+  marginBottom: '1rem',
+  border: '1px solid #fb923c',
 };
 
 const emptyStateStyle: React.CSSProperties = {
@@ -727,5 +845,30 @@ const iconBtnStyle: React.CSSProperties = {
   justifyContent: 'center',
   cursor: 'pointer',
   transition: 'all 0.2s ease',
+};
+
+const catGifContainerStyle: React.CSSProperties = {
+  display: 'flex',
+  flexDirection: 'column',
+  alignItems: 'center',
+  gap: '0.5rem',
+  padding: '1rem',
+  marginTop: '0.5rem',
+  backgroundColor: '#fff7ed',
+  borderRadius: '16px',
+  border: '2px dashed #fb923c',
+};
+
+const catGifStyle: React.CSSProperties = {
+  width: '120px',
+  height: 'auto',
+  borderRadius: '12px',
+};
+
+const catGifTextStyle: React.CSSProperties = {
+  fontSize: '0.8rem',
+  color: '#c2410c',
+  fontWeight: 500,
+  textAlign: 'center',
 };
 

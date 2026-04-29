@@ -14,6 +14,7 @@ import { getDurationFromNotes, minutesToTime, timeToMinutes } from '../../lib/ap
 
 const supabase = createClient();
 const SYSTEM_BLOCK_PATIENT_ID = 'b3614d2b-fa80-4c38-80b2-1458c78e4273';
+const SYSTEM_FULL_PATIENT_ID = 'c4725e3c-ab91-4d49-91c3-2569d89f5384';
 
 function getInitials(name: string) {
   return name
@@ -245,6 +246,7 @@ export default function TodayView() {
               const isArrived = appointment.status === 'arrived';
               const isSaving = savingArrivalId === appointment.id;
               const isSystemBlock = appointment.patient_id === SYSTEM_BLOCK_PATIENT_ID;
+              const isSystemFull = appointment.patient_id === SYSTEM_FULL_PATIENT_ID;
               
               const duration = getDurationFromNotes(appointment.notes);
               const endMinutes = timeToMinutes(appointment.time) + duration;
@@ -269,6 +271,31 @@ export default function TodayView() {
                     <div className={styles.controls}>
                       <button onClick={() => deleteAppointment(appointment.id)} className={`${styles.iconButton} ${styles.iconButtonDanger}`}>
                         <Trash2 size={14} color="#991b1b" />
+                      </button>
+                    </div>
+                  </div>
+                );
+              }
+
+              if (isSystemFull) {
+                return (
+                  <div key={appointment.id} className={styles.appointmentCard} style={{ backgroundColor: '#ffedd5', borderColor: '#fb923c' }}>
+                    <div className={styles.patientRow}>
+                      <div className={styles.timeCluster}>
+                        <span className={styles.time} style={{ color: '#c2410c' }}>{appointment.time}</span>
+                        <span className={styles.divider} />
+                        <div className={styles.avatar} style={{ backgroundColor: '#fb923c', color: 'white' }}>✓</div>
+                      </div>
+                      <div className={styles.copy}>
+                        <p className={styles.patientName} style={{ color: '#c2410c' }}>AGENDA COMPLETA</p>
+                        <div className={styles.metaRow}>
+                          <span className={styles.reason} style={{ color: '#ea580c' }}>No se aceptan más turnos</span>
+                        </div>
+                      </div>
+                    </div>
+                    <div className={styles.controls}>
+                      <button onClick={() => deleteAppointment(appointment.id)} className={`${styles.iconButton} ${styles.iconButtonDanger}`}>
+                        <Trash2 size={14} color="#c2410c" />
                       </button>
                     </div>
                   </div>

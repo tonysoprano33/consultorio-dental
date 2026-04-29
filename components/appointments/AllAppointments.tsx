@@ -57,10 +57,11 @@ export default function AllAppointments() {
   const filtered = useMemo(() => {
     const normalizedSearch = deferredSearch.trim().toLowerCase();
     const SYSTEM_BLOCK_PATIENT_ID = 'b3614d2b-fa80-4c38-80b2-1458c78e4273';
+    const SYSTEM_FULL_PATIENT_ID = 'c4725e3c-ab91-4d49-91c3-2569d89f5384';
 
     return appointments.filter((appointment) => {
-      // Filter out system block appointments
-      if (appointment.patient_id === SYSTEM_BLOCK_PATIENT_ID) return false;
+      // Filter out system block and system full appointments
+      if (appointment.patient_id === SYSTEM_BLOCK_PATIENT_ID || appointment.patient_id === SYSTEM_FULL_PATIENT_ID) return false;
 
       const patientName = (appointment.patient as any)?.name?.toLowerCase() || '';
 
