@@ -187,6 +187,19 @@
   text-overflow: ellipsis;
 }
 
+.debtAlert {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 16px;
+  height: 16px;
+  border-radius: 4px;
+  background-color: #fef3c7;
+  color: #d97706;
+  border: 1px solid #fcd34d;
+  flex-shrink: 0;
+}
+
 .appointmentCardBlock {
   background-color: #fffafb;
   border-color: #fee2e2;

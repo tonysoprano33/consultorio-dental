@@ -1,8 +1,6 @@
-'use client';
-
 import { useState, useEffect, type CSSProperties } from 'react';
 import { createClient } from '../../lib/supabase';
-import { Upload, X, Image as ImageIcon, ExternalLink, Loader2, Download, Trash2, Maximize2 } from 'lucide-react';
+import { Upload, X, Image as ImageIcon, ExternalLink, Loader2, Download, Trash2, Maximize2, Columns } from 'lucide-react';
 import imageCompression from 'browser-image-compression';
 
 const supabase = createClient();
@@ -22,6 +20,8 @@ export default function ImageGallery({ patientId }: Props) {
   const [uploading, setUploading] = useState(false);
   const [loading, setLoading] = useState(true);
   const [selectedPhoto, setSelectedPhoto] = useState<number | null>(null);
+  const [compareMode, setCompareMode] = useState(false);
+  const [compareSelection, setCompareSelection] = useState<number[]>([]);
 
   const loadFiles = async () => {
     setLoading(true);
@@ -96,15 +96,47 @@ export default function ImageGallery({ patientId }: Props) {
     }
   };
 
+  const toggleCompareSelect = (index: number) => {
+    if (compareSelection.includes(index)) {
+      setCompareSelection(prev => prev.filter(i => i !== index));
+    } else {
+      if (compareSelection.length < 2) {
+        setCompareSelection(prev => [...prev, index]);
+      } else {
+        setCompareSelection([compareSelection[1], index]);
+      }
+    }
+  };
+
   return (
     <div style={container}>
       <div style={header}>
-        <label style={uploadLabel}>
-          {uploading ? <Loader2 style={{ animation: 'spin 1s linear infinite' }} size={16} /> : <Upload size={16} />}
-          {uploading ? 'Subiendo...' : 'Subir Imagen / RX'}
-          <input type="file" hidden onChange={handleUpload} disabled={uploading} accept="image/*" />
-        </label>
+        <div style={{ display: 'flex', gap: 10 }}>
+          <button 
+            onClick={() => { setCompareMode(!compareMode); setCompareSelection([]); }} 
+            style={{ ...compareBtn, background: compareMode ? 'var(--lavender)' : 'white', color: compareMode ? 'var(--lavender-dark)' : 'var(--muted)' }}
+          >
+            <Columns size={16} />
+            {compareMode ? 'Cancelar comparación' : 'Comparar fotos'}
+          </button>
+          
+          <label style={uploadLabel}>
+            {uploading ? <Loader2 style={{ animation: 'spin 1s linear infinite' }} size={16} /> : <Upload size={16} />}
+            {uploading ? 'Subiendo...' : 'Subir Imagen / RX'}
+            <input type="file" hidden onChange={handleUpload} disabled={uploading} accept="image/*" />
+          </label>
+        </div>
       </div>
+
+      {compareMode && (
+        <div style={compareAlert}>
+          <p style={compareAlertText}>
+            {compareSelection.length === 0 ? 'Selecciona dos imágenes para comparar' : 
+             compareSelection.length === 1 ? 'Selecciona una imagen más' : 
+             '¡Listo! Comparando fotos seleccionadas'}
+          </p>
+        </div>
+      )}
 
       {loading ? (
         <p style={emptyText}>Cargando galería...</p>
@@ -115,21 +147,57 @@ export default function ImageGallery({ patientId }: Props) {
         </div>
       ) : (
         <div style={grid}>
-          {files.map((file, i) => (
-            <div key={i} style={fileCard} onClick={() => setSelectedPhoto(i)}>
-              <div style={imgWrap}>
-                <img src={file.url} alt={file.name} style={img} />
-                <div style={overlay}>
-                  <Maximize2 size={24} color="white" />
+          {files.map((file, i) => {
+            const isSelectedForCompare = compareSelection.includes(i);
+            return (
+              <div 
+                key={i} 
+                style={{ ...fileCard, borderColor: isSelectedForCompare ? 'var(--lavender-dark)' : 'var(--cfg-border)', borderWidth: isSelectedForCompare ? 2 : 1 }} 
+                onClick={() => compareMode ? toggleCompareSelect(i) : setSelectedPhoto(i)}
+              >
+                <div style={imgWrap}>
+                  <img src={file.url} alt={file.name} style={img} />
+                  {isSelectedForCompare && (
+                    <div style={compareCheck}>
+                      {compareSelection.indexOf(i) + 1}
+                    </div>
+                  )}
+                  {!compareMode && (
+                    <div style={overlay}>
+                      <Maximize2 size={24} color="white" />
+                    </div>
+                  )}
                 </div>
+                <p style={fileName}>{file.name}</p>
               </div>
-              <p style={fileName}>{file.name}</p>
-            </div>
-          ))}
+            );
+          })}
         </div>
       )}
 
-      {selectedPhoto !== null && (
+      {/* Side by side comparison */}
+      {compareMode && compareSelection.length === 2 && (
+        <div style={compareViewOverlay}>
+          <div style={compareViewContainer}>
+            <div style={compareHeader}>
+              <h3 style={compareTitle}>Comparativa de Progreso</h3>
+              <button style={compareClose} onClick={() => setCompareSelection([])}><X size={20} /></button>
+            </div>
+            <div style={compareGrid}>
+              <div style={compareColumn}>
+                <div style={compareImgWrap}><img src={files[compareSelection[0]].url} style={compareImg} /></div>
+                <p style={compareCaption}>{files[compareSelection[0]].name}</p>
+              </div>
+              <div style={compareColumn}>
+                <div style={compareImgWrap}><img src={files[compareSelection[1]].url} style={compareImg} /></div>
+                <p style={compareCaption}>{files[compareSelection[1]].name}</p>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {selectedPhoto !== null && !compareMode && (
         <div style={lightboxOverlay} onClick={() => setSelectedPhoto(null)}>
           <button style={lightboxClose} onClick={() => setSelectedPhoto(null)}>
             <X size={28} color="white" />
@@ -181,7 +249,7 @@ const container: CSSProperties = {
 };
 
 const header: CSSProperties = {
-  marginBottom: '1.5rem',
+  marginBottom: '1rem',
   display: 'flex',
   justifyContent: 'flex-end',
 };
@@ -198,6 +266,19 @@ const uploadLabel: CSSProperties = {
   cursor: 'pointer',
 };
 
+const compareBtn: CSSProperties = {
+  display: 'inline-flex',
+  alignItems: 'center',
+  gap: 8,
+  padding: '8px 16px',
+  borderRadius: 10,
+  fontSize: 12,
+  cursor: 'pointer',
+  border: '1.5px solid var(--cfg-border)',
+  fontWeight: 500,
+  transition: 'all 0.2s',
+};
+
 const grid: CSSProperties = {
   display: 'grid',
   gridTemplateColumns: 'repeat(auto-fill, minmax(140px, 1fr))',
@@ -208,6 +289,8 @@ const fileCard: CSSProperties = {
   borderRadius: 12,
   overflow: 'hidden',
   border: '1px solid var(--cfg-border)',
+  cursor: 'pointer',
+  transition: 'transform 0.2s',
 };
 
 const imgWrap: CSSProperties = {
@@ -235,9 +318,6 @@ const overlay: CSSProperties = {
   transition: 'opacity 0.2s',
 };
 
-// Note: In real CSS we'd use :hover on imgWrap to show overlay
-// For inline styles we might need state or just keep buttons visible or simpler UI
-
 const fileName: CSSProperties = {
   padding: '6px 10px',
   fontSize: 11,
@@ -246,18 +326,6 @@ const fileName: CSSProperties = {
   whiteSpace: 'nowrap',
   overflow: 'hidden',
   textOverflow: 'ellipsis',
-};
-
-const iconBtn: CSSProperties = {
-  width: 28,
-  height: 28,
-  borderRadius: 8,
-  background: 'white',
-  border: 'none',
-  cursor: 'pointer',
-  display: 'flex',
-  alignItems: 'center',
-  justifyContent: 'center',
 };
 
 const emptyState: CSSProperties = {
@@ -273,6 +341,122 @@ const emptyText: CSSProperties = {
   fontSize: 13,
   color: 'var(--muted)',
   padding: '2rem 0',
+};
+
+const compareCheck: CSSProperties = {
+  position: 'absolute',
+  top: 8,
+  right: 8,
+  width: 24,
+  height: 24,
+  borderRadius: '50%',
+  background: 'var(--lavender-dark)',
+  color: 'white',
+  display: 'flex',
+  alignItems: 'center',
+  justifyContent: 'center',
+  fontSize: 12,
+  fontWeight: 700,
+  boxShadow: '0 4px 8px rgba(0,0,0,0.2)',
+};
+
+const compareAlert: CSSProperties = {
+  background: 'var(--lavender)',
+  padding: '0.75rem',
+  borderRadius: 12,
+  marginBottom: '1rem',
+  textAlign: 'center',
+};
+
+const compareAlertText: CSSProperties = {
+  fontSize: 12,
+  color: 'var(--lavender-dark)',
+  fontWeight: 600,
+  margin: 0,
+};
+
+const compareViewOverlay: CSSProperties = {
+  position: 'fixed',
+  inset: 0,
+  background: 'rgba(0,0,0,0.85)',
+  display: 'flex',
+  alignItems: 'center',
+  justifyContent: 'center',
+  zIndex: 10000,
+  padding: '2rem',
+};
+
+const compareViewContainer: CSSProperties = {
+  width: '100%',
+  maxWidth: 1000,
+  background: 'white',
+  borderRadius: 24,
+  overflow: 'hidden',
+  display: 'flex',
+  flexDirection: 'column',
+};
+
+const compareHeader: CSSProperties = {
+  padding: '1.25rem 2rem',
+  borderBottom: '1px solid var(--cfg-border)',
+  display: 'flex',
+  justifyContent: 'space-between',
+  alignItems: 'center',
+};
+
+const compareTitle: CSSProperties = {
+  fontSize: 18,
+  fontWeight: 600,
+  color: 'var(--ink)',
+  margin: 0,
+};
+
+const compareClose: CSSProperties = {
+  background: 'var(--cream)',
+  border: 'none',
+  borderRadius: '50%',
+  width: 36,
+  height: 36,
+  display: 'flex',
+  alignItems: 'center',
+  justifyContent: 'center',
+  cursor: 'pointer',
+};
+
+const compareGrid: CSSProperties = {
+  display: 'grid',
+  gridTemplateColumns: '1fr 1fr',
+  gap: '1px',
+  background: 'var(--cfg-border)',
+};
+
+const compareColumn: CSSProperties = {
+  background: 'white',
+  padding: '1.5rem',
+  display: 'flex',
+  flexDirection: 'column',
+  gap: '1rem',
+};
+
+const compareImgWrap: CSSProperties = {
+  width: '100%',
+  aspectRatio: '4/3',
+  background: 'var(--cream-faint)',
+  borderRadius: 12,
+  overflow: 'hidden',
+};
+
+const compareImg: CSSProperties = {
+  width: '100%',
+  height: '100%',
+  objectFit: 'contain',
+};
+
+const compareCaption: CSSProperties = {
+  fontSize: 13,
+  color: 'var(--muted)',
+  textAlign: 'center',
+  margin: 0,
 };
 
 // Lightbox Styles
@@ -348,3 +532,4 @@ const lbBtn: CSSProperties = {
   alignItems: 'center',
   justifyContent: 'center',
 };
+

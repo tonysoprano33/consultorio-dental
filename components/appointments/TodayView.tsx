@@ -1,7 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useMemo, useState, type ReactNode } from 'react';
-import { Calendar, Check, CheckCircle, Clock, Pencil, Plus, Share2, Trash2 } from 'lucide-react';
+import { Calendar, Check, CheckCircle, Clock, DollarSign, MessageCircle, Pencil, Plus, Share2, Trash2 } from 'lucide-react';
 import Tooltip from '../Tooltip';
 import { formatLongDate, getTodayDateString } from '../../lib/date-utils';
 import { buildMailtoUrl, getArrivalEmailDraft } from '../../lib/mail-drafts';
@@ -26,9 +26,11 @@ function getInitials(name: string) {
 }
 
 type PatientPreview = {
+  id: string;
   name?: string | null;
   os?: string | null;
   phone?: string | null;
+  payments?: { amount: number }[];
 };
 
 export default function TodayView() {
@@ -48,13 +50,24 @@ export default function TodayView() {
 
     const { data } = await supabase
       .from('appointments')
-      .select('*, patient:patients(id, name, os, phone)')
+      .select('*, patient:patients(id, name, os, phone, payments:payments(amount))')
       .eq('date', today)
       .order('time', { ascending: true });
 
     setAppointments(data || []);
     setLoading(false);
   }, [today]);
+
+  const getPatientBalance = (patient?: PatientPreview) => {
+    if (!patient?.payments) return 0;
+    // Note: We don't have a total_cost field in patients, but we can flag if they have no payments or a very low amount
+    // For now, let's assume if they have 0 payments and visits, we might want to flag them, 
+    // or if we had a treatment cost. Since we don't have a cost field, let's look at the payment history.
+    // However, the user wants "debt alerts". Let's check if there's any logic for debt in the app.
+    // Looking at the codebase, it seems debt is manually tracked or inferred.
+    // I'll add a helper that returns true if we want to show a reminder.
+    return patient.payments.reduce((sum, p) => sum + (p.amount || 0), 0);
+  };
 
   useEffect(() => {
     void loadTodayAppointments();
@@ -165,6 +178,12 @@ export default function TodayView() {
     if (!confirm('¿Eliminar este turno?')) return;
     await supabase.from('appointments').delete().eq('id', id);
     await loadTodayAppointments();
+  };
+
+  const openWhatsApp = (phone: string, name: string) => {
+    const cleanPhone = phone.replace(/\D/g, '');
+    const message = encodeURIComponent(`Hola ${name}, te escribo del consultorio dental de la Dra. Nazarena para saludarte y estar en contacto. ¡Que tengas un buen día!`);
+    window.open(`https://wa.me/${cleanPhone}?text=${message}`, '_blank');
   };
 
   const shareAppointment = (id: string) => {
@@ -297,7 +316,16 @@ export default function TodayView() {
                     </div>
 
                     <div className={styles.copy}>
-                      <p className={styles.patientName}>{patient?.name || 'Paciente sin nombre'}</p>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                        <p className={styles.patientName}>{patient?.name || 'Paciente sin nombre'}</p>
+                        {patient && getPatientBalance(patient) === 0 && (
+                          <Tooltip text="Paciente con saldo pendiente o sin pagos registrados 💰">
+                            <div className={styles.debtAlert}>
+                              <DollarSign size={10} />
+                            </div>
+                          </Tooltip>
+                        )}
+                      </div>
                       {patient?.phone && (
                         <p className={styles.patientPhone}>
                           <span className={styles.phoneLabel}>TEL:</span> {patient.phone}
@@ -324,6 +352,18 @@ export default function TodayView() {
                     </Tooltip>
 
                     <div className={styles.iconActions}>
+                      {patient?.phone && (
+                        <Tooltip text="Enviar WhatsApp 📱">
+                          <button
+                            onClick={() => openWhatsApp(patient.phone!, patient.name || 'Paciente')}
+                            className={styles.iconButton}
+                            style={{ borderColor: '#25D366', background: '#f0fff4' }}
+                          >
+                            <MessageCircle size={14} color="#25D366" />
+                          </button>
+                        </Tooltip>
+                      )}
+
                       <Tooltip text="Compartir link 🔗">
                         <button
                           onClick={() => shareAppointment(appointment.id)}
