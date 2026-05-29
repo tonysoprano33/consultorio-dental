@@ -206,8 +206,8 @@ export default function PatientProfileModal({ isOpen, onClose, patient, onSaved 
         </div>
 
         {/* Body Content */}
-        <div style={historyBody}>
-          {activeTab === 'visitas' ? (
+        <div style={historyBody} key={activeTab}>
+          {activeTab === 'visitas' && (
             <>
               <h3 style={sectionTitle}>Historial de Consultas</h3>
               {loading ? (
@@ -266,7 +266,9 @@ export default function PatientProfileModal({ isOpen, onClose, patient, onSaved 
                 </div>
               )}
             </>
-          ) : activeTab === 'pagos' ? (
+          )}
+
+          {activeTab === 'pagos' && (
             <>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
                 <h3 style={sectionTitle}>Historial de Pagos</h3>
@@ -324,12 +326,16 @@ export default function PatientProfileModal({ isOpen, onClose, patient, onSaved 
                 </div>
               )}
             </>
-          ) : activeTab === 'odontograma' ? (
+          )}
+
+          {activeTab === 'odontograma' && (
             <>
               <h3 style={sectionTitle}>Estado Dental (FDI)</h3>
               <Odontogram patientId={patient.id} initialData={patient.odontogram} />
             </>
-          ) : (
+          )}
+
+          {activeTab === 'galeria' && (
             <>
               <h3 style={sectionTitle}>Imágenes y Radiografías</h3>
               <ImageGallery patientId={patient.id} />
