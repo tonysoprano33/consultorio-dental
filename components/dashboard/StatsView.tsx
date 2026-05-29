@@ -9,6 +9,8 @@ import { Appointment, Patient } from '../../types';
 import AchievementPanel from '../AchievementPanel';
 
 const supabase = createClient();
+const SYSTEM_BLOCK_PATIENT_ID = 'b3614d2b-fa80-4c38-80b2-1458c78e4273';
+const SYSTEM_FULL_PATIENT_ID = 'c4725e3c-ab91-4d49-91c3-2569d89f5384';
 
 export default function StatsView() {
   const [appointments, setAppointments] = useState<Appointment[]>([]);
@@ -30,11 +32,13 @@ export default function StatsView() {
     const { data: appts } = await supabase
       .from('appointments')
       .select('*, patient:patients(id, name)')
+      .not('patient_id', 'in', `(${SYSTEM_BLOCK_PATIENT_ID},${SYSTEM_FULL_PATIENT_ID})`)
       .gte('date', last30Days.split('T')[0]);
 
     const { data: pts } = await supabase
       .from('patients')
       .select('*')
+      .not('id', 'in', `(${SYSTEM_BLOCK_PATIENT_ID},${SYSTEM_FULL_PATIENT_ID})`)
       .gte('created_at', last30Days);
 
     setAppointments(appts || []);

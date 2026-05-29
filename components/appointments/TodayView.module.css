@@ -187,6 +187,119 @@
   text-overflow: ellipsis;
 }
 
+.appointmentCardBlock {
+  background-color: #fffafb;
+  border-color: #fee2e2;
+}
+
+.appointmentCardFull {
+  background-color: #fcfbf8;
+  border-color: #ffedd5;
+}
+
+.avatarBlock {
+  background-color: var(--rose-light) !important;
+  color: var(--rose-deep) !important;
+}
+
+.avatarFull {
+  background-color: var(--sage-pale) !important;
+  color: var(--sage-deep) !important;
+}
+
+.patientNameBlock {
+  font-size: 0.9rem;
+  font-weight: 700;
+  color: var(--rose-deep);
+  letter-spacing: 0.02em;
+}
+
+.patientNameFull {
+  font-size: 0.9rem;
+  font-weight: 700;
+  color: var(--sage-deep);
+  letter-spacing: 0.02em;
+}
+
+.blockedBanner,
+.fullBanner {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  padding: 1rem 1.25rem;
+  border-radius: 18px;
+  margin-bottom: 1.5rem;
+  border: 1px solid transparent;
+}
+
+.blockedBanner {
+  background-color: #fffafb;
+  border-color: #fee2e2;
+}
+
+.fullBanner {
+  background-color: #fffaf0;
+  border-color: #ffedd5;
+}
+
+.bannerIcon {
+  width: 2.25rem;
+  height: 2.25rem;
+  border-radius: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 700;
+  flex-shrink: 0;
+}
+
+.bannerContent {
+  flex: 1;
+}
+
+.bannerTitle {
+  font-size: 0.85rem;
+  font-weight: 700;
+  letter-spacing: 0.03em;
+  margin-bottom: 0.1rem;
+}
+
+.blockedBanner .bannerTitle {
+  color: #991b1b;
+}
+
+.fullBanner .bannerTitle {
+  color: #c2410c;
+}
+
+.bannerMuted {
+  font-size: 0.78rem;
+  color: var(--muted);
+  font-weight: 300;
+}
+
+.patientPhone {
+  font-size: 0.82rem;
+  font-weight: 500;
+  color: var(--sage-deep);
+  margin-top: 0.25rem;
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  letter-spacing: 0.02em;
+}
+
+.phoneLabel {
+  font-size: 0.58rem;
+  color: var(--sage-deep);
+  opacity: 0.7;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  background: var(--sage-pale);
+  padding: 1px 5px;
+  border-radius: 4px;
+}
+
 .metaRow {
   display: flex;
   align-items: center;

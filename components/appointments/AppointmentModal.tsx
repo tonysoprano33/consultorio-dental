@@ -103,7 +103,7 @@ export default function AppointmentModal({ isOpen, onClose, editAppt, onSaved, i
   };
 
   const loadPatients = async () => {
-    const { data } = await supabase.from('patients').select('id, name, os').order('name');
+    const { data } = await supabase.from('patients').select('id, name, os, dni').order('name');
     setPatients(data || []);
   };
 
@@ -115,7 +115,11 @@ export default function AppointmentModal({ isOpen, onClose, editAppt, onSaved, i
   const filteredPatients = patients.filter(p => {
     const search = searchTerm.toLowerCase();
     if (p.id === SYSTEM_BLOCK_PATIENT_ID || p.id === SYSTEM_FULL_PATIENT_ID) return false;
-    return p.name.toLowerCase().includes(search) || (p.os && p.os.toLowerCase().includes(search));
+    return (
+      p.name.toLowerCase().includes(search) || 
+      (p.os && p.os.toLowerCase().includes(search)) ||
+      (p.dni && p.dni.includes(searchTerm))
+    );
   });
 
   const selectPatient = (p: any) => {
@@ -261,7 +265,7 @@ export default function AppointmentModal({ isOpen, onClose, editAppt, onSaved, i
                 <Search size={14} style={searchIcon} />
                 <input 
                   type="text" 
-                  placeholder="Buscar por nombre u obra social..." 
+                  placeholder="Buscar por nombre, DNI u obra social..." 
                   value={searchTerm} 
                   onChange={e => { setSearchTerm(e.target.value); setShowSuggestions(true); }}
                   onFocus={() => setShowSuggestions(true)}
@@ -275,7 +279,10 @@ export default function AppointmentModal({ isOpen, onClose, editAppt, onSaved, i
                   {filteredPatients.length > 0 ? (
                     filteredPatients.map(p => (
                       <div key={p.id} onClick={() => selectPatient(p)} style={{ ...dropdownItem, backgroundColor: form.patientId === p.id ? 'var(--sage-pale)' : 'transparent' }}>
-                        <div style={{ fontWeight: 500, color: 'var(--ink)' }}>{p.name}</div>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                          <div style={{ fontWeight: 500, color: 'var(--ink)' }}>{p.name}</div>
+                          {p.dni && <div style={{ fontSize: 10, color: 'var(--rose-deep)', fontWeight: 600, background: 'var(--rose)', padding: '1px 5px', borderRadius: 4 }}>DNI: {p.dni}</div>}
+                        </div>
                         {p.os && <div style={{ fontSize: 11, color: 'var(--muted)' }}>{p.os}</div>}
                       </div>
                     ))

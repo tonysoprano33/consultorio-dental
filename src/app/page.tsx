@@ -55,7 +55,7 @@ const tabs = [
   { id: 'panel', label: 'Panel', icon: BarChart3 },
   { id: 'turnos', label: 'Turnos', icon: CalendarDays },
   { id: 'pacientes', label: 'Pacientes', icon: Users },
-  { id: 'inventario', label: 'Insumos', icon: Box },
+  // { id: 'inventario', label: 'Insumos', icon: Box },
   { id: 'recordatorios', label: 'Alertas', icon: BellRing },
   { id: 'config', label: 'Config', icon: Settings },
 ] as const;
@@ -204,7 +204,7 @@ export default function Dashboard() {
   else if (activeTab === 'panel') activeView = <StatsView />;
   else if (activeTab === 'turnos') activeView = <AllAppointments />;
   else if (activeTab === 'pacientes') activeView = <PatientsView />;
-  else if (activeTab === 'inventario') activeView = <InventoryView />;
+  else if (activeTab === ( 'inventario' as any )) activeView = <InventoryView />;
   else if (activeTab === 'recordatorios') activeView = <RemindersView />;
   else activeView = <ConfigView onLogout={handleLogout} />;
 

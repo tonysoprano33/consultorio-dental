@@ -21,6 +21,9 @@ function getInitials(name: string) {
     .toUpperCase();
 }
 
+const SYSTEM_BLOCK_PATIENT_ID = 'b3614d2b-fa80-4c38-80b2-1458c78e4273';
+const SYSTEM_FULL_PATIENT_ID = 'c4725e3c-ab91-4d49-91c3-2569d89f5384';
+
 export default function PatientsView() {
   const [patients, setPatients] = useState<Patient[]>([]);
   const [loading, setLoading] = useState(true);
@@ -47,7 +50,11 @@ export default function PatientsView() {
 
   const loadPatients = async () => {
     setLoading(true);
-    const { data } = await supabase.from('patients').select('*').order('name');
+    const { data } = await supabase
+      .from('patients')
+      .select('*')
+      .not('id', 'in', `(${SYSTEM_BLOCK_PATIENT_ID},${SYSTEM_FULL_PATIENT_ID})`)
+      .order('name');
     setPatients(data || []);
     setLoading(false);
   };
@@ -222,7 +229,14 @@ export default function PatientsView() {
                       <td style={tdStyle}>
                         <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
                           <div style={avatarStyle}>{getInitials(patient.name)}</div>
-                          <span style={{ fontWeight: 500 }}>{patient.name}</span>
+                          <div style={{ display: 'flex', flexDirection: 'column' }}>
+                            <span style={{ fontWeight: 500 }}>{patient.name}</span>
+                            {!patient.dob && (
+                              <span style={{ fontSize: 10, color: 'var(--rose-deep)', fontWeight: 500, display: 'flex', alignItems: 'center', gap: 3 }}>
+                                <Activity size={10} /> FALTA FECHA NAC.
+                              </span>
+                            )}
+                          </div>
                         </div>
                       </td>
                       <td style={{ ...tdStyle, color: 'var(--muted)', fontWeight: 300 }}>{patient.dni || '—'}</td>

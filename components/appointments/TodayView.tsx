@@ -174,14 +174,23 @@ export default function TodayView() {
   };
 
   const total = appointments.length;
-  const totalPages = Math.ceil(total / itemsPerPage);
+  const arrivedCount = appointments.filter((appointment) => appointment.status === 'arrived').length;
+
+  const isFullDay = appointments.some(a => a.patient_id === SYSTEM_FULL_PATIENT_ID);
+  const isBlockedDay = appointments.some(a => a.patient_id === SYSTEM_BLOCK_PATIENT_ID);
+  
+  const displayAppointments = appointments.filter(a => 
+    a.patient_id !== SYSTEM_BLOCK_PATIENT_ID && a.patient_id !== SYSTEM_FULL_PATIENT_ID
+  );
+
   const paginatedAppointments = useMemo(() => {
     const start = (currentPage - 1) * itemsPerPage;
-    return appointments.slice(start, start + itemsPerPage);
-  }, [appointments, currentPage]);
+    return displayAppointments.slice(start, start + itemsPerPage);
+  }, [displayAppointments, currentPage]);
 
-  const arrivedCount = appointments.filter((appointment) => appointment.status === 'arrived').length;
-  const pendingCount = total - arrivedCount;
+  const realTotal = displayAppointments.length;
+  const realPending = displayAppointments.filter(a => a.status !== 'arrived').length;
+  const totalPages = Math.ceil(realTotal / itemsPerPage);
 
   return (
     <div className={styles.container}>
@@ -205,17 +214,37 @@ export default function TodayView() {
         </button>
       </div>
 
+      {isBlockedDay && (
+        <div className={styles.blockedBanner}>
+          <div className={styles.bannerIcon} style={{ background: '#fee2e2', color: '#991b1b' }}>!</div>
+          <div className={styles.bannerContent}>
+            <p className={styles.bannerTitle}>DÍA NO LABORABLE</p>
+            <p className={styles.bannerMuted}>La doctora no atiende en el día de hoy.</p>
+          </div>
+        </div>
+      )}
+
+      {isFullDay && (
+        <div className={styles.fullBanner}>
+          <div className={styles.bannerIcon} style={{ background: '#ffedd5', color: '#ea580c' }}>✓</div>
+          <div className={styles.bannerContent}>
+            <p className={styles.bannerTitle} style={{ color: '#ea580c' }}>AGENDA COMPLETA</p>
+            <p className={styles.bannerMuted}>No se aceptan más turnos por hoy. ¡Día de mucho trabajo!</p>
+          </div>
+        </div>
+      )}
+
       <div className={styles.statsGrid}>
         <StatCard
           icon={<Calendar size={18} color="var(--sage-dark)" />}
           iconBg="var(--sage)"
-          value={total}
+          value={realTotal}
           label="Turnos hoy"
         />
         <StatCard
           icon={<Clock size={18} color="var(--sage-dark)" />}
           iconBg="var(--sage-pale)"
-          value={pendingCount}
+          value={realPending}
           label="Pendientes"
         />
         <StatCard
@@ -232,7 +261,7 @@ export default function TodayView() {
         <div className={styles.emptyCard}>
           <p className={styles.emptyMuted}>Cargando turnos...</p>
         </div>
-      ) : appointments.length === 0 ? (
+      ) : displayAppointments.length === 0 ? (
         <div className={styles.emptyCard}>
           <div className={styles.emptyIcon}>+</div>
           <p className={styles.emptyTitle}>Sin turnos para hoy</p>
@@ -245,62 +274,10 @@ export default function TodayView() {
               const patient = appointment.patient as PatientPreview | undefined;
               const isArrived = appointment.status === 'arrived';
               const isSaving = savingArrivalId === appointment.id;
-              const isSystemBlock = appointment.patient_id === SYSTEM_BLOCK_PATIENT_ID;
-              const isSystemFull = appointment.patient_id === SYSTEM_FULL_PATIENT_ID;
               
               const duration = getDurationFromNotes(appointment.notes);
               const endMinutes = timeToMinutes(appointment.time) + duration;
               const endTime = minutesToTime(endMinutes);
-
-              if (isSystemBlock) {
-                return (
-                  <div key={appointment.id} className={styles.appointmentCard} style={{ backgroundColor: '#fee2e2', borderColor: '#f87171' }}>
-                    <div className={styles.patientRow}>
-                      <div className={styles.timeCluster}>
-                        <span className={styles.time} style={{ color: '#991b1b' }}>{appointment.time}</span>
-                        <span className={styles.divider} />
-                        <div className={styles.avatar} style={{ backgroundColor: '#f87171', color: 'white' }}>!</div>
-                      </div>
-                      <div className={styles.copy}>
-                        <p className={styles.patientName} style={{ color: '#991b1b' }}>DÍA NO LABORABLE</p>
-                        <div className={styles.metaRow}>
-                          <span className={styles.reason} style={{ color: '#b91c1c' }}>Bloqueo de agenda</span>
-                        </div>
-                      </div>
-                    </div>
-                    <div className={styles.controls}>
-                      <button onClick={() => deleteAppointment(appointment.id)} className={`${styles.iconButton} ${styles.iconButtonDanger}`}>
-                        <Trash2 size={14} color="#991b1b" />
-                      </button>
-                    </div>
-                  </div>
-                );
-              }
-
-              if (isSystemFull) {
-                return (
-                  <div key={appointment.id} className={styles.appointmentCard} style={{ backgroundColor: '#ffedd5', borderColor: '#fb923c' }}>
-                    <div className={styles.patientRow}>
-                      <div className={styles.timeCluster}>
-                        <span className={styles.time} style={{ color: '#c2410c' }}>{appointment.time}</span>
-                        <span className={styles.divider} />
-                        <div className={styles.avatar} style={{ backgroundColor: '#fb923c', color: 'white' }}>✓</div>
-                      </div>
-                      <div className={styles.copy}>
-                        <p className={styles.patientName} style={{ color: '#c2410c' }}>AGENDA COMPLETA</p>
-                        <div className={styles.metaRow}>
-                          <span className={styles.reason} style={{ color: '#ea580c' }}>No se aceptan más turnos</span>
-                        </div>
-                      </div>
-                    </div>
-                    <div className={styles.controls}>
-                      <button onClick={() => deleteAppointment(appointment.id)} className={`${styles.iconButton} ${styles.iconButtonDanger}`}>
-                        <Trash2 size={14} color="#c2410c" />
-                      </button>
-                    </div>
-                  </div>
-                );
-              }
 
               return (
                 <div
@@ -321,6 +298,11 @@ export default function TodayView() {
 
                     <div className={styles.copy}>
                       <p className={styles.patientName}>{patient?.name || 'Paciente sin nombre'}</p>
+                      {patient?.phone && (
+                        <p className={styles.patientPhone}>
+                          <span className={styles.phoneLabel}>TEL:</span> {patient.phone}
+                        </p>
+                      )}
                       <div className={styles.metaRow}>
                         <span className={styles.reason}>{appointment.reason || 'Consulta'}</span>
                         <span style={{ fontSize: '0.65rem', color: 'var(--muted)', background: 'var(--cream)', padding: '1px 5px', borderRadius: '4px' }}>{duration} min</span>
